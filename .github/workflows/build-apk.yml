@@ -1,1 +1,76 @@
+name: Build APK
 
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Generate Android shell if missing
+        run: |
+          if [ ! -d "android" ]; then
+            mkdir -p /tmp/keep
+            cp -r lib pubspec.yaml /tmp/keep/
+            flutter create --org dj.nomade --project-name velox_pro --platforms=android .
+            rm -rf lib pubspec.yaml
+            cp -r /tmp/keep/lib ./lib
+            cp /tmp/keep/pubspec.yaml ./pubspec.yaml
+          fi
+
+      - name: Force minSdk 23
+        run: |
+          GRADLE=android/app/build.gradle.kts
+          if [ -f "$GRADLE" ]; then
+            sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 23/' "$GRADLE"
+          fi
+
+      - name: Enable Google Services plugin
+        run: |
+          SETTINGS=android/settings.gradle.kts
+          GRADLE=android/app/build.gradle.kts
+          if ! grep -q "com.google.gms.google-services" "$SETTINGS"; then
+            sed -i 's/plugins {/plugins {\n    id("com.google.gms.google-services") version "4.4.2" apply false/' "$SETTINGS"
+          fi
+          if ! grep -q "com.google.gms.google-services" "$GRADLE"; then
+            sed -i 's/^plugins {/plugins {\n    id("com.google.gms.google-services")/' "$GRADLE"
+          fi
+
+      - name: Write google-services.json
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            mkdir -p android/app
+            printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+          fi
+
+      - name: Pub get
+        run: flutter pub get
+
+      - name: Build APK
+        run: flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: velox-pro-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
