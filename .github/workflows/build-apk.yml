@@ -44,6 +44,14 @@ jobs:
             sed -i 's/android:label="[^"]*"/android:label="VELOX Partenaire"/' "$MAN"
           fi
 
+      - name: Add location permissions
+        run: |
+          MAN=android/app/src/main/AndroidManifest.xml
+          if [ -f "$MAN" ] && ! grep -q "ACCESS_FINE_LOCATION" "$MAN"; then
+            sed -i 's#<manifest \(.*\)>#<manifest \1>\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>#' "$MAN"
+            echo "Permissions localisation ajoutées."
+          fi
+
       - name: Force minSdk 23
         run: |
           GRADLE=android/app/build.gradle.kts
