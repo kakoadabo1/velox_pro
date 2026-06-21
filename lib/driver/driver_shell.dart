@@ -12,9 +12,31 @@ class DriverShell extends StatefulWidget {
   State<DriverShell> createState() => _DriverShellState();
 }
 
-class _DriverShellState extends State<DriverShell> {
+class _DriverShellState extends State<DriverShell>
+    with WidgetsBindingObserver {
   int _tab = 0;
   bool _online = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!_online) return;
+    FirestoreService.setPartnerOnline(
+      role: 'driver',
+      online: state == AppLifecycleState.resumed,
+    );
+  }
 
   void _setOnline(bool v) {
     setState(() => _online = v);
@@ -55,6 +77,10 @@ class _DriverShellState extends State<DriverShell> {
           icon: const Icon(Icons.logout),
           tooltip: tr('logout'),
           onPressed: () async {
+            if (_online) {
+              await FirestoreService.setPartnerOnline(
+                  role: 'driver', online: false);
+            }
             await FirebaseAuth.instance.signOut();
             if (context.mounted) Navigator.of(context).pop();
           },
@@ -240,12 +266,14 @@ class _DriverRequests extends StatelessWidget {
                     child: FilledButton(
                       onPressed: () async {
                         try {
-                          await FirestoreService.acceptRide(r['id'] as String);
+                          final ok = await FirestoreService.acceptRide(
+                              r['id'] as String);
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                  content: Text(
-                                      tr('ride_accepted')),
+                                  content: Text(ok
+                                      ? tr('ride_accepted')
+                                      : tr('already_taken')),
                                   behavior: SnackBarBehavior.floating),
                             );
                           }

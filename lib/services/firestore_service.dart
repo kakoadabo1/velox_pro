@@ -107,14 +107,30 @@ class FirestoreService {
             s.docs.map((d) => {'id': d.id, ...d.data()}).toList());
   }
 
-  static Future<void> acceptOrder(String orderId) async {
+  /// Accepte une commande de façon SÛRE (transaction).
+  /// Renvoie true si réussi, false si déjà prise par un autre.
+  static Future<bool> acceptOrder(String orderId) async {
     final uid = _uid;
-    if (uid == null) return;
-    await _db.collection('orders').doc(orderId).update({
-      'courierId': uid,
-      'status': 'assignee',
-      'assignedAt': FieldValue.serverTimestamp(),
-    });
+    if (uid == null) return false;
+    final ref = _db.collection('orders').doc(orderId);
+    try {
+      return await _db.runTransaction<bool>((tx) async {
+        final snap = await tx.get(ref);
+        if (!snap.exists) return false;
+        final data = snap.data() as Map<String, dynamic>;
+        if (data['courierId'] != null || data['status'] != 'prete') {
+          return false; // déjà prise / plus disponible
+        }
+        tx.update(ref, {
+          'courierId': uid,
+          'status': 'assignee',
+          'assignedAt': FieldValue.serverTimestamp(),
+        });
+        return true;
+      });
+    } catch (_) {
+      return false;
+    }
   }
 
   static Future<void> setOrderStatus(String orderId, String status) {
@@ -144,14 +160,30 @@ class FirestoreService {
             s.docs.map((d) => {'id': d.id, ...d.data()}).toList());
   }
 
-  static Future<void> acceptRide(String rideId) async {
+  /// Accepte une course de façon SÛRE (transaction).
+  /// Renvoie true si réussi, false si déjà prise par un autre.
+  static Future<bool> acceptRide(String rideId) async {
     final uid = _uid;
-    if (uid == null) return;
-    await _db.collection('rides').doc(rideId).update({
-      'driverId': uid,
-      'status': 'assignee',
-      'assignedAt': FieldValue.serverTimestamp(),
-    });
+    if (uid == null) return false;
+    final ref = _db.collection('rides').doc(rideId);
+    try {
+      return await _db.runTransaction<bool>((tx) async {
+        final snap = await tx.get(ref);
+        if (!snap.exists) return false;
+        final data = snap.data() as Map<String, dynamic>;
+        if (data['driverId'] != null || data['status'] != 'recherche') {
+          return false; // déjà prise / plus disponible
+        }
+        tx.update(ref, {
+          'driverId': uid,
+          'status': 'assignee',
+          'assignedAt': FieldValue.serverTimestamp(),
+        });
+        return true;
+      });
+    } catch (_) {
+      return false;
+    }
   }
 
   static Future<void> setRideStatus(String rideId, String status) {

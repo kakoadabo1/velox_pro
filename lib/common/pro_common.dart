@@ -536,6 +536,9 @@ class ProfilScreen extends StatelessWidget {
                 height: 52,
                 child: OutlinedButton.icon(
                   onPressed: () async {
+                    await FirestoreService.setPartnerOnline(
+                        role: role == 'Taxi' ? 'driver' : 'livreur',
+                        online: false);
                     await FirebaseAuth.instance.signOut();
                     if (context.mounted) {
                       Navigator.of(context).popUntil((r) => r.isFirst);

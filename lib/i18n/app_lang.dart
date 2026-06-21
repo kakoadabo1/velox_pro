@@ -139,6 +139,7 @@ const Map<String, Map<String, String>> _t = {
   'tip_off_driver': {'fr': 'Passez en ligne pour recevoir des courses.', 'en': 'Go online to receive rides.', 'ar': 'اتصل لاستقبال الرحلات.', 'aa': 'Marot daaqis.', 'so': 'Online noqo si aad u hesho safaro.'},
   'order_accepted': {'fr': 'Commande acceptée — onglet En cours', 'en': 'Order accepted — In progress tab', 'ar': 'تم قبول الطلب — تبويب جارٍ', 'aa': 'Amris oggolime', 'so': 'Dalab la aqbalay — tabka Socota'},
   'ride_accepted': {'fr': 'Course acceptée — onglet En cours', 'en': 'Ride accepted — In progress tab', 'ar': 'تم قبول الرحلة — تبويب جارٍ', 'aa': 'Gexso oggolime', 'so': 'Safar la aqbalay — tabka Socota'},
+  'already_taken': {'fr': 'Déjà prise par un autre partenaire', 'en': 'Already taken by another partner', 'ar': 'تم أخذها من قبل شريك آخر', 'aa': 'Kalah kataysih beyte', 'so': 'Mid kale ayaa hore u qaatay'},
 
   // Auth
   'login_welcome': {'fr': 'Bienvenue 👋', 'en': 'Welcome 👋', 'ar': '👋 مرحباً', 'aa': 'Nagaay 👋', 'so': 'Soo dhawoow 👋'},

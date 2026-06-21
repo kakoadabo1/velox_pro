@@ -12,9 +12,32 @@ class LivreurShell extends StatefulWidget {
   State<LivreurShell> createState() => _LivreurShellState();
 }
 
-class _LivreurShellState extends State<LivreurShell> {
+class _LivreurShellState extends State<LivreurShell>
+    with WidgetsBindingObserver {
   int _tab = 0;
   bool _online = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!_online) return;
+    // App en arrière-plan / fermée -> hors ligne ; de retour -> en ligne.
+    FirestoreService.setPartnerOnline(
+      role: 'livreur',
+      online: state == AppLifecycleState.resumed,
+    );
+  }
 
   void _setOnline(bool v) {
     setState(() => _online = v);
@@ -60,6 +83,10 @@ class _LivreurShellState extends State<LivreurShell> {
           icon: const Icon(Icons.logout),
           tooltip: tr('logout'),
           onPressed: () async {
+            if (_online) {
+              await FirestoreService.setPartnerOnline(
+                  role: 'livreur', online: false);
+            }
             await FirebaseAuth.instance.signOut();
             if (context.mounted) Navigator.of(context).pop();
           },
@@ -235,12 +262,14 @@ class _LivreurOrders extends StatelessWidget {
                     child: FilledButton(
                       onPressed: () async {
                         try {
-                          await FirestoreService.acceptOrder(o['id'] as String);
+                          final ok = await FirestoreService.acceptOrder(
+                              o['id'] as String);
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                  content:
-                                      Text(tr('order_accepted')),
+                                  content: Text(ok
+                                      ? tr('order_accepted')
+                                      : tr('already_taken')),
                                   behavior: SnackBarBehavior.floating),
                             );
                           }
