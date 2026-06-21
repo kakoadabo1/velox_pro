@@ -23,8 +23,7 @@ class _LivreurShellState extends State<LivreurShell> {
       _LivreurHome(online: _online, onToggle: () => _setOnline(!_online)),
       _LivreurOrders(online: _online),
       const _LivreurActive(),
-      ParametresScreen(
-          role: 'Livreur', online: _online, onToggleOnline: _setOnline),
+      const ParametresScreen(role: 'Livreur'),
     ];
 
     return Scaffold(
