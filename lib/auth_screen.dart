@@ -115,21 +115,6 @@ class _AuthScreenState extends State<AuthScreen>
                   ),
                 ),
 
-                if (firebaseInitError != null)
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.red.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.red),
-                    ),
-                    child: Text(
-                      'Firebase non initialisé :\n$firebaseInitError',
-                      style: const TextStyle(color: Colors.red, fontSize: 12),
-                    ),
-                  ),
-
                 // ── Logo animé ──
                 _Appear(
                   controller: _intro,
