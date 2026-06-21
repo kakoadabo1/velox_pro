@@ -152,8 +152,8 @@ class _DriverHome extends StatelessWidget {
         OnlineToggle(
           online: online,
           onTap: onToggle,
-          onlineLabel: 'EN LIGNE — en attente de course',
-          offlineLabel: 'HORS LIGNE — touchez pour démarrer',
+          onlineLabel: 'En attente de course',
+          offlineLabel: 'Activez pour recevoir des courses',
         ),
         const SizedBox(height: 12),
         const NoteCard(role: 'Taxi'),

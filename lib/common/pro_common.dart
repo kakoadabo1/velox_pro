@@ -33,17 +33,26 @@ class ProfileAvatar extends StatelessWidget {
     return ValueListenableBuilder<String?>(
       valueListenable: ProfileStore.photoPath,
       builder: (context, path, _) {
+        final hasPhoto = path != null && path.isNotEmpty;
         return Container(
           width: size,
           height: size,
           decoration: BoxDecoration(
             color: vc.primary.withValues(alpha: 0.15),
             shape: BoxShape.circle,
-            border: Border.all(color: vc.primary, width: 1.5),
+            border: hasPhoto
+                ? null
+                : Border.all(color: vc.primary, width: 1.5),
           ),
           clipBehavior: Clip.antiAlias,
-          child: (path != null && path.isNotEmpty)
-              ? Image.file(File(path), fit: BoxFit.cover)
+          child: hasPhoto
+              ? Image.file(
+                  File(path),
+                  width: size,
+                  height: size,
+                  fit: BoxFit.cover,
+                  alignment: Alignment.center,
+                )
               : Icon(
                   role == 'Taxi' ? Icons.local_taxi : Icons.two_wheeler,
                   color: vc.primary,
@@ -87,7 +96,7 @@ class WelcomeHeader extends StatelessWidget {
     final vc = context.vc;
     return Row(
       children: [
-        ProfileAvatar(role: role, size: 48),
+        ProfileAvatar(role: role, size: 56),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -116,7 +125,7 @@ class WelcomeHeader extends StatelessWidget {
   }
 }
 
-/// Grand bouton EN LIGNE / HORS LIGNE.
+/// Carte de disponibilité avec un interrupteur (ouvrir / fermer).
 class OnlineToggle extends StatelessWidget {
   const OnlineToggle({
     super.key,
@@ -133,26 +142,54 @@ class OnlineToggle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final vc = context.vc;
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
-        height: 66,
-        decoration: BoxDecoration(
-          color: online ? vc.primary : vc.surface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: online ? vc.primary : vc.line, width: 1.5),
-        ),
-        child: Center(
-          child: Text(
-            online ? onlineLabel : offlineLabel,
-            style: TextStyle(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: online
+            ? vc.primary.withValues(alpha: 0.14)
+            : vc.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+            color: online ? vc.primary : vc.line, width: 1.5),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: online ? vc.primary : vc.line,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              online ? Icons.power_settings_new : Icons.power_off,
               color: online ? vc.onPrimary : vc.dim,
-              fontWeight: FontWeight.w800,
-              fontSize: 15,
             ),
           ),
-        ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(online ? 'Disponible' : 'Indisponible',
+                    style: TextStyle(
+                        color: vc.onSurface,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16)),
+                const SizedBox(height: 2),
+                Text(online ? onlineLabel : offlineLabel,
+                    style: TextStyle(color: vc.dim, fontSize: 12)),
+              ],
+            ),
+          ),
+          Switch(
+            value: online,
+            activeColor: vc.onPrimary,
+            activeTrackColor: vc.primary,
+            onChanged: (_) => onTap(),
+          ),
+        ],
       ),
     );
   }
@@ -494,7 +531,7 @@ class ProfilScreen extends StatelessWidget {
                 Stack(
                   alignment: Alignment.bottomRight,
                   children: [
-                    ProfileAvatar(role: role, size: 96),
+                    ProfileAvatar(role: role, size: 110),
                     Material(
                       color: vc.primary,
                       shape: const CircleBorder(),

@@ -99,8 +99,8 @@ class _LivreurHome extends StatelessWidget {
         OnlineToggle(
           online: online,
           onTap: onToggle,
-          onlineLabel: 'EN LIGNE — disponible',
-          offlineLabel: 'HORS LIGNE — touchez pour démarrer',
+          onlineLabel: 'Vous recevez des commandes',
+          offlineLabel: 'Activez pour recevoir des commandes',
         ),
         const SizedBox(height: 18),
         Row(
