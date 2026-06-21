@@ -29,10 +29,12 @@ jobs:
           if [ ! -d "android" ]; then
             mkdir -p /tmp/keep
             cp -r lib pubspec.yaml /tmp/keep/
+            [ -d assets ] && cp -r assets /tmp/keep/ || true
             flutter create --org dj.nomade --project-name velox_pro --platforms=android .
             rm -rf lib pubspec.yaml
             cp -r /tmp/keep/lib ./lib
             cp /tmp/keep/pubspec.yaml ./pubspec.yaml
+            [ -d /tmp/keep/assets ] && cp -r /tmp/keep/assets ./assets || true
           fi
 
       - name: Force minSdk 23
@@ -64,6 +66,21 @@ jobs:
 
       - name: Pub get
         run: flutter pub get
+
+      - name: Generate launcher icon and splash
+        run: |
+          if [ -f assets/logo.png ]; then
+            echo "Generation de l'icone..."
+            dart run flutter_launcher_icons
+          else
+            echo "Pas d'assets/logo.png -> icone par defaut conservee."
+          fi
+          if [ -f assets/logo.png ]; then
+            echo "Generation du splash..."
+            dart run flutter_native_splash:create
+          else
+            echo "Pas d'assets/logo.png -> splash par defaut conserve."
+          fi
 
       - name: Build APK
         run: flutter build apk --release
