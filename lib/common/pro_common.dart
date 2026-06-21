@@ -5,12 +5,13 @@ import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
 import '../theme/velox_theme.dart';
+import '../i18n/app_lang.dart';
 import '../main.dart';
+import '../services/firestore_service.dart';
 
-/// Stockage simple de la photo de profil (en session).
+/// Photo de profil (session).
 class ProfileStore {
   static final ValueNotifier<String?> photoPath = ValueNotifier<String?>(null);
-
   static Future<void> pickFromGallery() async {
     try {
       final picker = ImagePicker();
@@ -21,7 +22,6 @@ class ProfileStore {
   }
 }
 
-/// Avatar du partenaire : photo si dispo, sinon icône du rôle.
 class ProfileAvatar extends StatelessWidget {
   const ProfileAvatar({super.key, required this.role, this.size = 48});
   final String role;
@@ -40,32 +40,20 @@ class ProfileAvatar extends StatelessWidget {
           decoration: BoxDecoration(
             color: vc.primary.withValues(alpha: 0.15),
             shape: BoxShape.circle,
-            border: hasPhoto
-                ? null
-                : Border.all(color: vc.primary, width: 1.5),
+            border: hasPhoto ? null : Border.all(color: vc.primary, width: 1.5),
           ),
           clipBehavior: Clip.antiAlias,
           child: hasPhoto
-              ? Image.file(
-                  File(path),
-                  width: size,
-                  height: size,
-                  fit: BoxFit.cover,
-                  alignment: Alignment.center,
-                )
-              : Icon(
-                  role == 'Taxi' ? Icons.local_taxi : Icons.two_wheeler,
-                  color: vc.primary,
-                  size: size * 0.5,
-                ),
+              ? Image.file(File(path),
+                  width: size, height: size, fit: BoxFit.cover)
+              : Icon(role == 'Taxi' ? Icons.local_taxi : Icons.two_wheeler,
+                  color: vc.primary, size: size * 0.5),
         );
       },
     );
   }
 }
 
-/// Nom affiché du partenaire, déduit du compte connecté.
-/// Ex: "karim.h@velox.dj" -> "Karim H".
 String proDisplayName() {
   final u = FirebaseAuth.instance.currentUser;
   String base;
@@ -86,10 +74,9 @@ String proDisplayName() {
   return base;
 }
 
-/// En-tête "Bienvenue Mr X" + rôle.
 class WelcomeHeader extends StatelessWidget {
   const WelcomeHeader({super.key, required this.role});
-  final String role; // 'Livreur' | 'Taxi'
+  final String role;
 
   @override
   Widget build(BuildContext context) {
@@ -102,21 +89,17 @@ class WelcomeHeader extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Bienvenue', style: TextStyle(color: vc.dim, fontSize: 13)),
-              Text(
-                'Mr ${proDisplayName()}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                    color: vc.onSurface,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900),
-              ),
-              Text(
-                role == 'Taxi' ? 'Chauffeur VTC' : 'Livreur partenaire',
-                style:
-                    TextStyle(color: vc.primary, fontWeight: FontWeight.w600),
-              ),
+              Text(tr('welcome'), style: TextStyle(color: vc.dim, fontSize: 13)),
+              Text('Mr ${proDisplayName()}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      color: vc.onSurface,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900)),
+              Text(role == 'Taxi' ? tr('role_driver') : tr('role_livreur'),
+                  style:
+                      TextStyle(color: vc.primary, fontWeight: FontWeight.w600)),
             ],
           ),
         ),
@@ -125,7 +108,6 @@ class WelcomeHeader extends StatelessWidget {
   }
 }
 
-/// Carte de disponibilité avec un interrupteur (ouvrir / fermer).
 class OnlineToggle extends StatelessWidget {
   const OnlineToggle({
     super.key,
@@ -146,12 +128,9 @@ class OnlineToggle extends StatelessWidget {
       duration: const Duration(milliseconds: 220),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: online
-            ? vc.primary.withValues(alpha: 0.14)
-            : vc.surface,
+        color: online ? vc.primary.withValues(alpha: 0.14) : vc.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-            color: online ? vc.primary : vc.line, width: 1.5),
+        border: Border.all(color: online ? vc.primary : vc.line, width: 1.5),
       ),
       child: Row(
         children: [
@@ -159,20 +138,16 @@ class OnlineToggle extends StatelessWidget {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: online ? vc.primary : vc.line,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              online ? Icons.power_settings_new : Icons.power_off,
-              color: online ? vc.onPrimary : vc.dim,
-            ),
+                color: online ? vc.primary : vc.line, shape: BoxShape.circle),
+            child: Icon(online ? Icons.power_settings_new : Icons.power_off,
+                color: online ? vc.onPrimary : vc.dim),
           ),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(online ? 'Disponible' : 'Indisponible',
+                Text(online ? tr('available') : tr('unavailable'),
                     style: TextStyle(
                         color: vc.onSurface,
                         fontWeight: FontWeight.w800,
@@ -195,14 +170,9 @@ class OnlineToggle extends StatelessWidget {
   }
 }
 
-/// Carte statistique avec compteur animé.
 class ProStat extends StatelessWidget {
-  const ProStat({
-    super.key,
-    required this.label,
-    required this.value,
-    this.unit = '',
-  });
+  const ProStat(
+      {super.key, required this.label, required this.value, this.unit = ''});
   final String label;
   final int value;
   final String unit;
@@ -212,7 +182,7 @@ class ProStat extends StatelessWidget {
     final vc = context.vc;
     return TweenAnimationBuilder<int>(
       tween: IntTween(begin: 0, end: value),
-      duration: const Duration(milliseconds: 900),
+      duration: const Duration(milliseconds: 800),
       builder: (context, v, _) => Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
@@ -225,11 +195,11 @@ class ProStat extends StatelessWidget {
           children: [
             Text(label, style: TextStyle(color: vc.dim, fontSize: 12)),
             const SizedBox(height: 6),
-            Text(
-              unit.isEmpty ? '$v' : '$v $unit',
-              style: TextStyle(
-                  color: vc.primary, fontSize: 22, fontWeight: FontWeight.w900),
-            ),
+            Text(unit.isEmpty ? '$v' : '$v $unit',
+                style: TextStyle(
+                    color: vc.primary,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900)),
           ],
         ),
       ),
@@ -237,16 +207,17 @@ class ProStat extends StatelessWidget {
   }
 }
 
-/// Carte "note moyenne" cliquable -> ouvre les avis.
 class NoteCard extends StatelessWidget {
-  const NoteCard({super.key, required this.role});
+  const NoteCard({super.key, required this.role, this.rating, this.count});
   final String role;
+  final double? rating;
+  final int? count;
 
   @override
   Widget build(BuildContext context) {
     final vc = context.vc;
-    final note = role == 'Taxi' ? '4.9' : '4.8';
-    final nb = role == 'Taxi' ? 128 : 96;
+    final noteTxt = rating != null ? rating!.toStringAsFixed(1) : '—';
+    final nbTxt = count != null ? '$count ${tr('reviews_n')}' : tr('no_reviews_yet');
     return InkWell(
       borderRadius: BorderRadius.circular(16),
       onTap: () => Navigator.of(context).push(
@@ -267,9 +238,9 @@ class NoteCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Note moyenne',
+                  Text(tr('note_avg'),
                       style: TextStyle(color: vc.dim, fontSize: 12)),
-                  Text('$note ★ · $nb avis',
+                  Text('$noteTxt ★ · $nbTxt',
                       style: TextStyle(
                           color: vc.onSurface, fontWeight: FontWeight.w800)),
                 ],
@@ -283,9 +254,8 @@ class NoteCard extends StatelessWidget {
   }
 }
 
-/// État vide façon "Tout est clair".
 class EmptyState extends StatelessWidget {
-  const EmptyState({
+  EmptyState({
     super.key,
     required this.title,
     required this.subtitle,
@@ -309,7 +279,7 @@ class EmptyState extends StatelessWidget {
             Text(title,
                 style: TextStyle(
                     color: vc.onSurface,
-                    fontSize: 28,
+                    fontSize: 26,
                     fontWeight: FontWeight.w900)),
             const SizedBox(height: 8),
             Text(subtitle,
@@ -322,128 +292,100 @@ class EmptyState extends StatelessWidget {
   }
 }
 
-/// Un avis client.
-class Avis {
-  final String name;
-  final int stars;
-  final String comment;
-  final String when;
-  const Avis(this.name, this.stars, this.comment, this.when);
-}
-
-/// Écran "Avis clients".
+/// ─────────────────────────────── AVIS ──────────────────────────────────────
 class AvisScreen extends StatelessWidget {
   const AvisScreen({super.key, required this.role});
   final String role;
 
-  List<Avis> get _data => role == 'Taxi'
-      ? const [
-          Avis('Inès A.', 5, 'Chauffeur ponctuel et très courtois.', "Aujourd'hui"),
-          Avis('Omar S.', 5, 'Conduite douce, voiture propre.', 'Hier'),
-          Avis('Farah M.', 4, 'Bon trajet, un peu de retard au départ.', 'Hier'),
-          Avis('Yacin D.', 5, 'Parfait pour aller à l\'aéroport.', 'Il y a 2 j'),
-          Avis('Hodan K.', 5, 'Je recommande, très pro.', 'Il y a 3 j'),
-        ]
-      : const [
-          Avis('Sahra M.', 5, 'Livraison rapide, repas encore chaud !', "Aujourd'hui"),
-          Avis('Bilal R.', 5, 'Très aimable, merci.', 'Hier'),
-          Avis('Nadia H.', 4, 'Bien, mais un peu d\'attente.', 'Hier'),
-          Avis('Karim A.', 5, 'Toujours au top.', 'Il y a 2 j'),
-          Avis('Lula G.', 5, 'Livreur sympa et rapide.', 'Il y a 4 j'),
-        ];
-
   @override
   Widget build(BuildContext context) {
     final vc = context.vc;
-    final avg = (_data.fold<int>(0, (s, a) => s + a.stars) / _data.length);
     return Scaffold(
-      appBar: AppBar(title: const Text('Avis clients')),
-      body: ListView(
-        padding: const EdgeInsets.all(18),
-        children: [
-          Container(
+      appBar: AppBar(title: Text(tr('client_reviews'))),
+      body: StreamBuilder<List<Map<String, dynamic>>>(
+        stream: FirestoreService.myReviews(),
+        builder: (context, snap) {
+          if (snap.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final data = snap.data ?? const [];
+          if (data.isEmpty) {
+            return EmptyState(
+              title: tr('no_reviews'),
+              subtitle: tr('no_reviews_sub'),
+              icon: Icons.star_border,
+            );
+          }
+          final avg = data.fold<num>(0, (s, a) => s + (a['stars'] ?? 0)) /
+              data.length;
+          return ListView(
             padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: vc.surface,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: vc.line),
-            ),
-            child: Row(
-              children: [
-                Text(avg.toStringAsFixed(1),
-                    style: TextStyle(
-                        color: vc.primary,
-                        fontSize: 40,
-                        fontWeight: FontWeight.w900)),
-                const SizedBox(width: 14),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: vc.surface,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: vc.line),
+                ),
+                child: Row(
                   children: [
-                    Row(
-                      children: List.generate(
-                        5,
-                        (i) => Icon(
-                          i < avg.round() ? Icons.star : Icons.star_border,
-                          color: vc.primary,
-                          size: 20,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text('${_data.length} avis clients',
+                    Text(avg.toStringAsFixed(1),
+                        style: TextStyle(
+                            color: vc.primary,
+                            fontSize: 40,
+                            fontWeight: FontWeight.w900)),
+                    const SizedBox(width: 14),
+                    Text('${data.length} ${tr('reviews_n')}',
                         style: TextStyle(color: vc.dim)),
                   ],
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          for (final a in _data)
-            Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: vc.surface,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: vc.line),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              const SizedBox(height: 16),
+              for (final a in data)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: vc.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: vc.line),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(a.name,
+                      Text('${a['authorName'] ?? 'Client'}',
                           style: TextStyle(
                               color: vc.onSurface,
                               fontWeight: FontWeight.w800)),
-                      Text(a.when,
-                          style: TextStyle(color: vc.dim, fontSize: 12)),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: List.generate(
+                          5,
+                          (i) => Icon(
+                            i < ((a['stars'] ?? 0) as num).toInt()
+                                ? Icons.star
+                                : Icons.star_border,
+                            color: vc.primary,
+                            size: 16,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text('${a['comment'] ?? ''}',
+                          style: TextStyle(color: vc.dim, height: 1.4)),
                     ],
                   ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: List.generate(
-                      5,
-                      (i) => Icon(
-                        i < a.stars ? Icons.star : Icons.star_border,
-                        color: vc.primary,
-                        size: 16,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(a.comment, style: TextStyle(color: vc.dim, height: 1.4)),
-                ],
-              ),
-            ),
-        ],
+                ),
+            ],
+          );
+        },
       ),
     );
   }
 }
 
-/// ───────────────────────── PARAMÈTRES (épuré + fonctionnel) ─────────────────
+/// ───────────────────────────── PARAMÈTRES ──────────────────────────────────
 class ParametresScreen extends StatelessWidget {
   const ParametresScreen({super.key, required this.role});
   final String role;
@@ -451,7 +393,6 @@ class ParametresScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final vc = context.vc;
-
     Widget tile(IconData icon, String label, String sub, Widget page) {
       return Column(
         children: [
@@ -473,24 +414,23 @@ class ParametresScreen extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.symmetric(vertical: 8),
       children: [
-        tile(Icons.person_outline, 'Profil', 'Vos informations',
+        tile(Icons.person_outline, tr('profile'), tr('profile_sub'),
             ProfilScreen(role: role)),
-        tile(Icons.account_balance_wallet_outlined, 'Mes gains',
-            'Détail des revenus', GainsScreen(role: role)),
-        tile(Icons.history, 'Historique', 'Vos missions passées',
+        tile(Icons.account_balance_wallet_outlined, tr('my_gains'),
+            tr('my_gains_sub'), GainsScreen(role: role)),
+        tile(Icons.history, tr('history'), tr('history_sub'),
             HistoriqueScreen(role: role)),
-        tile(Icons.star_outline, 'Avis clients', 'Ce que disent les clients',
+        tile(Icons.star_outline, tr('client_reviews'), tr('client_reviews_sub'),
             AvisScreen(role: role)),
-        tile(Icons.tune, 'Réglages', 'Thème, notifications',
+        tile(Icons.tune, tr('settings'), tr('settings_sub'),
             const ReglagesScreen()),
-        tile(Icons.support_agent, 'Aide & support', 'Nous contacter',
+        tile(Icons.support_agent, tr('help_support'), tr('help_support_sub'),
             const SupportScreen()),
       ],
     );
   }
 }
 
-/// ───────────────────────── PROFIL ──────────────────────────────────────────
 class ProfilScreen extends StatelessWidget {
   const ProfilScreen({super.key, required this.role});
   final String role;
@@ -499,7 +439,6 @@ class ProfilScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final vc = context.vc;
     final email = FirebaseAuth.instance.currentUser?.email ?? '—';
-    final note = role == 'Taxi' ? '4.9' : '4.8';
 
     Widget info(IconData ic, String label, String value) => Padding(
           padding: const EdgeInsets.symmetric(vertical: 10),
@@ -521,87 +460,99 @@ class ProfilScreen extends StatelessWidget {
         );
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Profil')),
-      body: ListView(
-        padding: const EdgeInsets.all(18),
-        children: [
-          Center(
-            child: Column(
-              children: [
-                Stack(
-                  alignment: Alignment.bottomRight,
+      appBar: AppBar(title: Text(tr('profile'))),
+      body: StreamBuilder<Map<String, dynamic>>(
+        stream: FirestoreService.partnerStream(),
+        builder: (context, snap) {
+          final p = snap.data ?? const {};
+          final rating = p['rating'];
+          return ListView(
+            padding: const EdgeInsets.all(18),
+            children: [
+              Center(
+                child: Column(
                   children: [
-                    ProfileAvatar(role: role, size: 110),
-                    Material(
-                      color: vc.primary,
-                      shape: const CircleBorder(),
-                      child: InkWell(
-                        customBorder: const CircleBorder(),
-                        onTap: () => ProfileStore.pickFromGallery(),
-                        child: Padding(
-                          padding: const EdgeInsets.all(8),
-                          child: Icon(Icons.photo_camera,
-                              size: 18, color: vc.onPrimary),
+                    Stack(
+                      alignment: Alignment.bottomRight,
+                      children: [
+                        ProfileAvatar(role: role, size: 110),
+                        Material(
+                          color: vc.primary,
+                          shape: const CircleBorder(),
+                          child: InkWell(
+                            customBorder: const CircleBorder(),
+                            onTap: () => ProfileStore.pickFromGallery(),
+                            child: Padding(
+                              padding: const EdgeInsets.all(8),
+                              child: Icon(Icons.photo_camera,
+                                  size: 18, color: vc.onPrimary),
+                            ),
+                          ),
                         ),
-                      ),
+                      ],
                     ),
+                    const SizedBox(height: 8),
+                    TextButton.icon(
+                      onPressed: () => ProfileStore.pickFromGallery(),
+                      icon: const Icon(Icons.upload),
+                      label: Text(tr('change_photo')),
+                    ),
+                    Text('Mr ${proDisplayName()}',
+                        style: TextStyle(
+                            color: vc.onSurface,
+                            fontSize: 22,
+                            fontWeight: FontWeight.w900)),
+                    Text(
+                        role == 'Taxi'
+                            ? tr('role_driver')
+                            : tr('role_livreur'),
+                        style: TextStyle(color: vc.primary)),
                   ],
                 ),
-                const SizedBox(height: 12),
-                TextButton.icon(
-                  onPressed: () => ProfileStore.pickFromGallery(),
-                  icon: const Icon(Icons.upload),
-                  label: const Text('Changer la photo'),
+              ),
+              const SizedBox(height: 20),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                decoration: BoxDecoration(
+                  color: vc.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: vc.line),
                 ),
-                Text('Mr ${proDisplayName()}',
-                    style: TextStyle(
-                        color: vc.onSurface,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w900)),
-                Text(role == 'Taxi' ? 'Chauffeur VTC' : 'Livreur partenaire',
-                    style: TextStyle(color: vc.primary)),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            decoration: BoxDecoration(
-              color: vc.surface,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: vc.line),
-            ),
-            child: Column(
-              children: [
-                info(Icons.email_outlined, 'Email', email),
-                Divider(height: 1, color: vc.line),
-                info(Icons.badge_outlined, 'Statut', 'Partenaire vérifié'),
-                Divider(height: 1, color: vc.line),
-                info(Icons.star, 'Note', '$note ★'),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-          SizedBox(
-            height: 52,
-            child: OutlinedButton.icon(
-              onPressed: () async {
-                await FirebaseAuth.instance.signOut();
-                if (context.mounted) {
-                  Navigator.of(context).popUntil((r) => r.isFirst);
-                }
-              },
-              icon: const Icon(Icons.logout),
-              label: const Text('Se déconnecter'),
-            ),
-          ),
-        ],
+                child: Column(
+                  children: [
+                    info(Icons.email_outlined, tr('email'), email),
+                    Divider(height: 1, color: vc.line),
+                    info(Icons.badge_outlined, tr('status'),
+                        tr('status_verified')),
+                    Divider(height: 1, color: vc.line),
+                    info(Icons.star, tr('note'),
+                        rating != null ? '$rating ★' : '—'),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                height: 52,
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    await FirebaseAuth.instance.signOut();
+                    if (context.mounted) {
+                      Navigator.of(context).popUntil((r) => r.isFirst);
+                    }
+                  },
+                  icon: const Icon(Icons.logout),
+                  label: Text(tr('logout')),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 }
 
-/// ───────────────────────── GAINS ───────────────────────────────────────────
 class GainsScreen extends StatelessWidget {
   const GainsScreen({super.key, required this.role});
   final String role;
@@ -609,201 +560,134 @@ class GainsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final vc = context.vc;
-    final today = role == 'Taxi' ? 8450 : 4200;
-    final week = role == 'Taxi' ? 41200 : 24800;
-    final month = role == 'Taxi' ? 168000 : 96500;
-
-    Widget big(String label, int value) => Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            color: vc.surface,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: vc.line),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label, style: TextStyle(color: vc.dim, fontSize: 13)),
-              const SizedBox(height: 6),
-              TweenAnimationBuilder<int>(
-                tween: IntTween(begin: 0, end: value),
-                duration: const Duration(milliseconds: 900),
-                builder: (context, v, _) => Text('$v DJF',
-                    style: TextStyle(
-                        color: vc.primary,
-                        fontSize: 30,
-                        fontWeight: FontWeight.w900)),
-              ),
-            ],
-          ),
-        );
-
     return Scaffold(
-      appBar: AppBar(title: const Text('Mes gains')),
-      body: ListView(
-        padding: const EdgeInsets.all(18),
-        children: [
-          big("Aujourd'hui", today),
-          const SizedBox(height: 12),
-          Row(
+      appBar: AppBar(title: Text(tr('my_gains'))),
+      body: StreamBuilder<Map<String, dynamic>>(
+        stream: FirestoreService.partnerStream(),
+        builder: (context, snap) {
+          final p = snap.data ?? const {};
+          final today = (p['gainsToday'] ?? 0) as num;
+          final week = (p['gainsWeek'] ?? 0) as num;
+          final month = (p['gainsMonth'] ?? 0) as num;
+          return ListView(
+            padding: const EdgeInsets.all(18),
             children: [
-              Expanded(child: ProStat(label: 'Cette semaine', value: week, unit: 'DJF')),
-              const SizedBox(width: 12),
-              Expanded(child: ProStat(label: 'Ce mois', value: month, unit: 'DJF')),
-            ],
-          ),
-          const SizedBox(height: 18),
-          Text('Derniers versements',
-              style: TextStyle(
-                  color: vc.onSurface, fontWeight: FontWeight.w800)),
-          const SizedBox(height: 10),
-          for (final p in const [
-            ['Lun.', 3800],
-            ['Mar.', 5200],
-            ['Mer.', 4100],
-            ['Jeu.', 6300],
-          ])
-            Container(
-              margin: const EdgeInsets.only(bottom: 10),
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: vc.surface,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: vc.line),
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: vc.surface,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: vc.line),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(tr('today'),
+                        style: TextStyle(color: vc.dim, fontSize: 13)),
+                    const SizedBox(height: 6),
+                    Text('$today DJF',
+                        style: TextStyle(
+                            color: vc.primary,
+                            fontSize: 30,
+                            fontWeight: FontWeight.w900)),
+                  ],
+                ),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              const SizedBox(height: 12),
+              Row(
                 children: [
-                  Text('${p[0]}', style: TextStyle(color: vc.dim)),
-                  Text('+${p[1]} DJF',
-                      style: TextStyle(
-                          color: vc.primary, fontWeight: FontWeight.w800)),
+                  Expanded(
+                      child: ProStat(
+                          label: tr('this_week'),
+                          value: week.toInt(),
+                          unit: 'DJF')),
+                  const SizedBox(width: 12),
+                  Expanded(
+                      child: ProStat(
+                          label: tr('this_month'),
+                          value: month.toInt(),
+                          unit: 'DJF')),
                 ],
               ),
-            ),
-        ],
+              const SizedBox(height: 18),
+              Text(tr('gains_update_note'),
+                  style: TextStyle(color: vc.dim)),
+            ],
+          );
+        },
       ),
     );
   }
 }
 
-/// ───────────────────────── HISTORIQUE ──────────────────────────────────────
-class HistoriqueScreen extends StatefulWidget {
+class HistoriqueScreen extends StatelessWidget {
   const HistoriqueScreen({super.key, required this.role});
   final String role;
-  @override
-  State<HistoriqueScreen> createState() => _HistoriqueScreenState();
-}
-
-class _HistoriqueScreenState extends State<HistoriqueScreen> {
-  int _period = 1; // 0 = jour, 1 = semaine, 2 = mois
-
-  Map<String, List<List<String>>> get _data => widget.role == 'Taxi'
-      ? {
-          'jour': [
-            ['Héron → Aéroport', '1 800 DJF', '11:20'],
-            ['Balbala → Centre', '900 DJF', '09:05'],
-          ],
-          'semaine': [
-            ['Héron → Aéroport', '1 800 DJF', 'Lun'],
-            ['Gabode → Plateau', '1 200 DJF', 'Mar'],
-            ['Centre → Balbala', '950 DJF', 'Jeu'],
-            ['Aéroport → Héron', '1 800 DJF', 'Ven'],
-          ],
-          'mois': [
-            ['Total 128 courses', '168 000 DJF', 'Juin'],
-            ['Total 112 courses', '149 500 DJF', 'Mai'],
-            ['Total 134 courses', '171 200 DJF', 'Avril'],
-          ],
-        }
-      : {
-          'jour': [
-            ['Chez Ayan → Inès A.', '450 DJF', '12:10'],
-            ['Pizza Layla → Omar S.', '600 DJF', '10:30'],
-          ],
-          'semaine': [
-            ['Chez Ayan → Inès A.', '450 DJF', 'Lun'],
-            ['Le Gourmet → Farah M.', '500 DJF', 'Mar'],
-            ['Pizza Layla → Omar S.', '600 DJF', 'Mer'],
-            ['Snack 7 → Bilal R.', '400 DJF', 'Ven'],
-          ],
-          'mois': [
-            ['Total 96 livraisons', '96 500 DJF', 'Juin'],
-            ['Total 88 livraisons', '88 200 DJF', 'Mai'],
-            ['Total 102 livraisons', '101 800 DJF', 'Avril'],
-          ],
-        };
 
   @override
   Widget build(BuildContext context) {
     final vc = context.vc;
-    final key = ['jour', 'semaine', 'mois'][_period];
-    final items = _data[key]!;
+    final taxi = role == 'Taxi';
     return Scaffold(
-      appBar: AppBar(title: const Text('Historique')),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: SegmentedButton<int>(
-              segments: const [
-                ButtonSegment(value: 0, label: Text('Jour')),
-                ButtonSegment(value: 1, label: Text('Semaine')),
-                ButtonSegment(value: 2, label: Text('Mois')),
-              ],
-              selected: {_period},
-              onSelectionChanged: (s) => setState(() => _period = s.first),
-            ),
-          ),
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
-              children: [
-                for (final it in items)
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: vc.surface,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: vc.line),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.check_circle, color: vc.primary),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(it[0],
-                                  style: TextStyle(
-                                      color: vc.onSurface,
-                                      fontWeight: FontWeight.w700)),
-                              Text(it[2],
-                                  style: TextStyle(
-                                      color: vc.dim, fontSize: 12)),
-                            ],
-                          ),
-                        ),
-                        Text(it[1],
-                            style: TextStyle(
-                                color: vc.primary,
-                                fontWeight: FontWeight.w800)),
-                      ],
-                    ),
+      appBar: AppBar(title: Text(tr('history'))),
+      body: StreamBuilder<List<Map<String, dynamic>>>(
+        stream: taxi
+            ? FirestoreService.completedRides()
+            : FirestoreService.completedOrders(),
+        builder: (context, snap) {
+          if (snap.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final data = snap.data ?? const [];
+          if (data.isEmpty) {
+            return EmptyState(
+              title: tr('no_mission'),
+              subtitle: tr('no_mission_sub'),
+              icon: Icons.history,
+            );
+          }
+          return ListView(
+            padding: const EdgeInsets.all(18),
+            children: [
+              for (final m in data)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: vc.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: vc.line),
                   ),
-              ],
-            ),
-          ),
-        ],
+                  child: Row(
+                    children: [
+                      Icon(Icons.check_circle, color: vc.primary),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          taxi
+                              ? '${m['from'] ?? '?'} → ${m['to'] ?? '?'}'
+                              : '${m['restaurantName'] ?? 'Restaurant'} → ${m['clientName'] ?? 'Client'}',
+                          style: TextStyle(
+                              color: vc.onSurface,
+                              fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                      Text(
+                          '${taxi ? (m['price'] ?? 0) : (m['total'] ?? 0)} DJF',
+                          style: TextStyle(
+                              color: vc.primary,
+                              fontWeight: FontWeight.w800)),
+                    ],
+                  ),
+                ),
+            ],
+          );
+        },
       ),
     );
   }
 }
 
-
-/// ───────────────────────── RÉGLAGES ────────────────────────────────────────
 class ReglagesScreen extends StatefulWidget {
   const ReglagesScreen({super.key});
   @override
@@ -813,19 +697,57 @@ class ReglagesScreen extends StatefulWidget {
 class _ReglagesScreenState extends State<ReglagesScreen> {
   bool _notifs = true;
 
+  void _pickLanguage(BuildContext context) {
+    final vc = context.vc;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: vc.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(tr('choose_language'),
+                  style: TextStyle(
+                      color: vc.onSurface,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800)),
+            ),
+            for (final e in kLanguageNames.entries)
+              ListTile(
+                title: Text(e.value,
+                    style: TextStyle(color: vc.onSurface)),
+                trailing: localeNotifier.value == e.key
+                    ? Icon(Icons.check, color: vc.primary)
+                    : null,
+                onTap: () {
+                  localeNotifier.value = e.key;
+                  Navigator.pop(ctx);
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final vc = context.vc;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      appBar: AppBar(title: const Text('Réglages')),
+      appBar: AppBar(title: Text(tr('settings'))),
       body: ListView(
         children: [
           SwitchListTile(
             value: isDark,
             activeColor: vc.primary,
             secondary: Icon(Icons.dark_mode, color: vc.primary),
-            title: Text('Mode sombre',
+            title: Text(tr('dark_mode'),
                 style: TextStyle(
                     color: vc.onSurface, fontWeight: FontWeight.w600)),
             onChanged: (v) =>
@@ -835,22 +757,28 @@ class _ReglagesScreenState extends State<ReglagesScreen> {
           SwitchListTile(
             value: _notifs,
             activeColor: vc.primary,
-            secondary: Icon(Icons.notifications_active_outlined,
-                color: vc.primary),
-            title: Text('Notifications',
+            secondary:
+                Icon(Icons.notifications_active_outlined, color: vc.primary),
+            title: Text(tr('notifications'),
                 style: TextStyle(
                     color: vc.onSurface, fontWeight: FontWeight.w600)),
-            subtitle: Text('Nouvelles missions et messages',
-                style: TextStyle(color: vc.dim, fontSize: 12)),
             onChanged: (v) => setState(() => _notifs = v),
           ),
           Divider(height: 1, color: vc.line),
           ListTile(
             leading: Icon(Icons.language, color: vc.primary),
-            title: Text('Langue',
+            title: Text(tr('language'),
                 style: TextStyle(
                     color: vc.onSurface, fontWeight: FontWeight.w600)),
-            trailing: Text('Français', style: TextStyle(color: vc.dim)),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(kLanguageNames[localeNotifier.value] ?? 'Français',
+                    style: TextStyle(color: vc.dim)),
+                Icon(Icons.chevron_right, color: vc.dim),
+              ],
+            ),
+            onTap: () => _pickLanguage(context),
           ),
         ],
       ),
@@ -858,14 +786,11 @@ class _ReglagesScreenState extends State<ReglagesScreen> {
   }
 }
 
-/// ───────────────────────── SUPPORT ─────────────────────────────────────────
 class SupportScreen extends StatelessWidget {
   const SupportScreen({super.key});
-
   @override
   Widget build(BuildContext context) {
     final vc = context.vc;
-
     Widget row(IconData ic, String label, String value) => Container(
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(16),
@@ -895,8 +820,8 @@ class SupportScreen extends StatelessWidget {
                 onPressed: () {
                   Clipboard.setData(ClipboardData(text: value));
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text('Copié'),
+                    SnackBar(
+                        content: Text(tr('copied')),
                         behavior: SnackBarBehavior.floating),
                   );
                 },
@@ -906,18 +831,18 @@ class SupportScreen extends StatelessWidget {
         );
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Aide & support')),
+      appBar: AppBar(title: Text(tr('help_support'))),
       body: ListView(
         padding: const EdgeInsets.all(18),
         children: [
-          Text('Besoin d\'aide ? Contactez l\'équipe VELOX.',
+          Text(tr('support_intro'),
               style: TextStyle(color: vc.dim, height: 1.4)),
           const SizedBox(height: 16),
-          row(Icons.phone, 'Téléphone', '+253 77 00 00 00'),
-          row(Icons.chat, 'WhatsApp', '+253 77 00 00 00'),
-          row(Icons.email_outlined, 'Email', 'support@velox.dj'),
+          row(Icons.phone, tr('phone'), '+253 77 00 00 00'),
+          row(Icons.chat, tr('whatsapp'), '+253 77 00 00 00'),
+          row(Icons.email_outlined, tr('email'), 'support@velox.dj'),
           const SizedBox(height: 8),
-          Text('Horaires : 7j/7, de 7h à 23h.',
+          Text(tr('hours'),
               style: TextStyle(color: vc.dim)),
         ],
       ),
@@ -925,14 +850,12 @@ class SupportScreen extends StatelessWidget {
   }
 }
 
-/// ───────────────────────── GRAPHIQUES ──────────────────────────────────────
-/// Histogramme hebdo animé (gains par jour).
+/// ─────────────────────────── GRAPHIQUES ────────────────────────────────────
 class WeeklyBarChart extends StatelessWidget {
-  const WeeklyBarChart({
-    super.key,
-    required this.values,
-    this.labels = const ['L', 'M', 'M', 'J', 'V', 'S', 'D'],
-  });
+  const WeeklyBarChart(
+      {super.key,
+      required this.values,
+      this.labels = const ['L', 'M', 'M', 'J', 'V', 'S', 'D']});
   final List<int> values;
   final List<String> labels;
 
@@ -947,12 +870,11 @@ class WeeklyBarChart extends StatelessWidget {
         height: 130,
         child: CustomPaint(
           painter: _BarPainter(
-            values: values,
-            labels: labels,
-            progress: t,
-            bar: vc.primary,
-            text: vc.dim,
-          ),
+              values: values,
+              labels: labels,
+              progress: t,
+              bar: vc.primary,
+              text: vc.dim),
           child: const SizedBox.expand(),
         ),
       ),
@@ -961,13 +883,12 @@ class WeeklyBarChart extends StatelessWidget {
 }
 
 class _BarPainter extends CustomPainter {
-  _BarPainter({
-    required this.values,
-    required this.labels,
-    required this.progress,
-    required this.bar,
-    required this.text,
-  });
+  _BarPainter(
+      {required this.values,
+      required this.labels,
+      required this.progress,
+      required this.bar,
+      required this.text});
   final List<int> values;
   final List<String> labels;
   final double progress;
@@ -984,16 +905,14 @@ class _BarPainter extends CustomPainter {
     final chartH = size.height - labelH;
     final barW = (size.width - gap * (n - 1)) / n;
     final paint = Paint()..color = bar;
-
     for (int i = 0; i < n; i++) {
       final h = (values[i] / maxV) * chartH * progress;
       final x = i * (barW + gap);
-      final rect = RRect.fromRectAndRadius(
-        Rect.fromLTWH(x, chartH - h, barW, h),
-        const Radius.circular(6),
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+            Rect.fromLTWH(x, chartH - h, barW, h), const Radius.circular(6)),
+        paint,
       );
-      canvas.drawRRect(rect, paint);
-
       final tp = TextPainter(
         text: TextSpan(
             text: labels[i % labels.length],
@@ -1009,14 +928,19 @@ class _BarPainter extends CustomPainter {
       old.progress != progress || old.values != values;
 }
 
-/// Donut animé (répartition).
+class DonutSeg {
+  final String label;
+  final double value;
+  final Color color;
+  const DonutSeg(this.label, this.value, this.color);
+}
+
 class DonutChart extends StatelessWidget {
-  const DonutChart({
-    super.key,
-    required this.segments,
-    this.centerLabel = '',
-    this.centerValue = '',
-  });
+  const DonutChart(
+      {super.key,
+      required this.segments,
+      this.centerLabel = '',
+      this.centerValue = ''});
   final List<DonutSeg> segments;
   final String centerLabel;
   final String centerValue;
@@ -1032,7 +956,8 @@ class DonutChart extends StatelessWidget {
         height: 130,
         width: 130,
         child: CustomPaint(
-          painter: _DonutPainter(segments: segments, progress: t, track: vc.line),
+          painter:
+              _DonutPainter(segments: segments, progress: t, track: vc.line),
           child: Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -1051,13 +976,6 @@ class DonutChart extends StatelessWidget {
       ),
     );
   }
-}
-
-class DonutSeg {
-  final String label;
-  final double value;
-  final Color color;
-  const DonutSeg(this.label, this.value, this.color);
 }
 
 class _DonutPainter extends CustomPainter {
@@ -1079,16 +997,20 @@ class _DonutPainter extends CustomPainter {
       ..strokeWidth = stroke
       ..color = track;
     canvas.drawArc(inner, 0, 2 * math.pi, false, bg);
-
     double start = -math.pi / 2;
     for (final seg in segments) {
       final sweep = (seg.value / total) * 2 * math.pi * progress;
-      final p = Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = stroke
-        ..strokeCap = StrokeCap.round
-        ..color = seg.color;
-      canvas.drawArc(inner, start, sweep, false, p);
+      canvas.drawArc(
+        inner,
+        start,
+        sweep,
+        false,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = stroke
+          ..strokeCap = StrokeCap.round
+          ..color = seg.color,
+      );
       start += (seg.value / total) * 2 * math.pi;
     }
   }
@@ -1097,22 +1019,55 @@ class _DonutPainter extends CustomPainter {
   bool shouldRepaint(covariant _DonutPainter old) => old.progress != progress;
 }
 
-/// Carte "Performance" : dégradé + histogramme hebdo.
+Widget _chartPlaceholder(BuildContext context, String title) {
+  final vc = context.vc;
+  return Container(
+    padding: const EdgeInsets.all(18),
+    decoration: BoxDecoration(
+      color: vc.surface,
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: vc.line),
+    ),
+    child: Row(
+      children: [
+        Icon(Icons.insights, color: vc.dim),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title,
+                  style: TextStyle(
+                      color: vc.onSurface, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 4),
+              Text(tr('no_data'),
+                  style: TextStyle(color: vc.dim, fontSize: 12)),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+/// Carte Performance : alimentée par les vraies données (sinon placeholder).
 class PerformanceCard extends StatelessWidget {
-  const PerformanceCard({super.key, required this.role});
-  final String role;
+  const PerformanceCard({super.key, this.weekly});
+  final List<int>? weekly;
 
   @override
   Widget build(BuildContext context) {
     final vc = context.vc;
-    final week = role == 'Taxi'
-        ? [5200, 3800, 6100, 4900, 7300, 8450, 5600]
-        : [2600, 3100, 2900, 3800, 4200, 4500, 3300];
-    final total = week.fold<int>(0, (s, e) => s + e);
+    final w = weekly;
+    if (w == null || w.isEmpty || w.every((e) => e == 0)) {
+      return _chartPlaceholder(context, tr('performance_7'));
+    }
+    final total = w.fold<int>(0, (s, e) => s + e);
     return InkWell(
       borderRadius: BorderRadius.circular(20),
       onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => PerformanceDetailScreen(role: role)),
+        MaterialPageRoute(
+            builder: (_) => PerformanceDetailScreen(weekly: w)),
       ),
       child: Container(
         padding: const EdgeInsets.all(18),
@@ -1121,10 +1076,7 @@ class PerformanceCard extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              vc.primary.withValues(alpha: 0.22),
-              vc.surface,
-            ],
+            colors: [vc.primary.withValues(alpha: 0.22), vc.surface],
           ),
           border: Border.all(color: vc.line),
         ),
@@ -1135,7 +1087,7 @@ class PerformanceCard extends StatelessWidget {
               children: [
                 Icon(Icons.insights, color: vc.primary, size: 20),
                 const SizedBox(width: 8),
-                Text('Performance · 7 jours',
+                Text(tr('performance_7'),
                     style: TextStyle(
                         color: vc.onSurface, fontWeight: FontWeight.w800)),
                 const Spacer(),
@@ -1145,12 +1097,12 @@ class PerformanceCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 14),
-            WeeklyBarChart(values: week),
+            WeeklyBarChart(values: w),
             const SizedBox(height: 10),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                Text('Voir plus',
+                Text(tr('see_more'),
                     style: TextStyle(
                         color: vc.primary, fontWeight: FontWeight.w700)),
                 Icon(Icons.chevron_right, color: vc.primary, size: 20),
@@ -1163,29 +1115,24 @@ class PerformanceCard extends StatelessWidget {
   }
 }
 
-/// Carte répartition (donut + légende).
 class RepartitionCard extends StatelessWidget {
-  const RepartitionCard({super.key, required this.role});
-  final String role;
+  const RepartitionCard({super.key, this.segments});
+  final List<DonutSeg>? segments;
 
   @override
   Widget build(BuildContext context) {
     final vc = context.vc;
-    final segs = role == 'Taxi'
-        ? const [
-            DonutSeg('Terminées', 24, Color(0xFF31D63B)),
-            DonutSeg('Annulées', 3, Color(0xFFFF5252)),
-          ]
-        : const [
-            DonutSeg('Livrées', 41, Color(0xFF31D63B)),
-            DonutSeg('Refusées', 6, Color(0xFFFFC107)),
-          ];
+    final segs = segments;
+    if (segs == null || segs.isEmpty) {
+      return _chartPlaceholder(context, tr('repartition'));
+    }
     final done = segs.first.value.toInt();
     final tot = segs.fold<double>(0, (s, e) => s + e.value).toInt();
     return InkWell(
       borderRadius: BorderRadius.circular(20),
       onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => RepartitionDetailScreen(role: role)),
+        MaterialPageRoute(
+            builder: (_) => RepartitionDetailScreen(segments: segs)),
       ),
       child: Container(
         padding: const EdgeInsets.all(18),
@@ -1199,16 +1146,15 @@ class RepartitionCard extends StatelessWidget {
             Row(
               children: [
                 DonutChart(
-                  segments: segs,
-                  centerValue: '$done/$tot',
-                  centerLabel: role == 'Taxi' ? 'courses' : 'livraisons',
-                ),
+                    segments: segs,
+                    centerValue: '$done/$tot',
+                    centerLabel: tr('missions')),
                 const SizedBox(width: 18),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Répartition',
+                      Text(tr('repartition'),
                           style: TextStyle(
                               color: vc.onSurface,
                               fontWeight: FontWeight.w800)),
@@ -1239,7 +1185,7 @@ class RepartitionCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                Text('Voir plus',
+                Text(tr('see_more'),
                     style: TextStyle(
                         color: vc.primary, fontWeight: FontWeight.w700)),
                 Icon(Icons.chevron_right, color: vc.primary, size: 20),
@@ -1252,36 +1198,16 @@ class RepartitionCard extends StatelessWidget {
   }
 }
 
-/// ───────────────────── DÉTAIL PERFORMANCE ──────────────────────────────────
-class PerformanceDetailScreen extends StatefulWidget {
-  const PerformanceDetailScreen({super.key, required this.role});
-  final String role;
-  @override
-  State<PerformanceDetailScreen> createState() =>
-      _PerformanceDetailScreenState();
-}
-
-class _PerformanceDetailScreenState extends State<PerformanceDetailScreen> {
-  int _period = 0; // 0 = semaine, 1 = mois
+class PerformanceDetailScreen extends StatelessWidget {
+  const PerformanceDetailScreen({super.key, required this.weekly});
+  final List<int> weekly;
 
   @override
   Widget build(BuildContext context) {
     final vc = context.vc;
-    final taxi = widget.role == 'Taxi';
-    final week = taxi
-        ? [5200, 3800, 6100, 4900, 7300, 8450, 5600]
-        : [2600, 3100, 2900, 3800, 4200, 4500, 3300];
-    final month = taxi
-        ? [38000, 41000, 35000, 44000, 39000, 47000, 42000, 45000]
-        : [21000, 24000, 22000, 26000, 23000, 27000, 25000, 24500];
-    final values = _period == 0 ? week : month;
-    final labels = _period == 0
-        ? const ['L', 'M', 'M', 'J', 'V', 'S', 'D']
-        : const ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8'];
-    final total = values.fold<int>(0, (s, e) => s + e);
-    final avg = (total / values.length).round();
-    final best = values.reduce((a, b) => a > b ? a : b);
-
+    final total = weekly.fold<int>(0, (s, e) => s + e);
+    final avg = (total / weekly.length).round();
+    final best = weekly.reduce((a, b) => a > b ? a : b);
     Widget stat(String label, String value) => Expanded(
           child: Container(
             padding: const EdgeInsets.all(14),
@@ -1304,21 +1230,11 @@ class _PerformanceDetailScreenState extends State<PerformanceDetailScreen> {
             ),
           ),
         );
-
     return Scaffold(
       appBar: AppBar(title: const Text('Performance')),
       body: ListView(
         padding: const EdgeInsets.all(18),
         children: [
-          SegmentedButton<int>(
-            segments: const [
-              ButtonSegment(value: 0, label: Text('Semaine')),
-              ButtonSegment(value: 1, label: Text('Mois')),
-            ],
-            selected: {_period},
-            onSelectionChanged: (s) => setState(() => _period = s.first),
-          ),
-          const SizedBox(height: 18),
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
@@ -1330,65 +1246,49 @@ class _PerformanceDetailScreenState extends State<PerformanceDetailScreen> {
               ),
               border: Border.all(color: vc.line),
             ),
-            child: WeeklyBarChart(values: values, labels: labels),
+            child: WeeklyBarChart(values: weekly),
           ),
           const SizedBox(height: 14),
-          Row(
-            children: [
-              stat('Total', '$total DJF'),
-              const SizedBox(width: 12),
-              stat('Moyenne', '$avg DJF'),
-            ],
-          ),
+          Row(children: [
+            stat('Total', '$total DJF'),
+            const SizedBox(width: 12),
+            stat('Moyenne', '$avg DJF'),
+          ]),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              stat('Meilleur', '$best DJF'),
-              const SizedBox(width: 12),
-              stat(taxi ? 'Courses' : 'Livraisons', taxi ? '128' : '96'),
-            ],
-          ),
+          Row(children: [
+            stat('Meilleur', '$best DJF'),
+            const SizedBox(width: 12),
+            stat('Jours', '${weekly.length}'),
+          ]),
         ],
       ),
     );
   }
 }
 
-/// ───────────────────── DÉTAIL RÉPARTITION ──────────────────────────────────
 class RepartitionDetailScreen extends StatelessWidget {
-  const RepartitionDetailScreen({super.key, required this.role});
-  final String role;
+  const RepartitionDetailScreen({super.key, required this.segments});
+  final List<DonutSeg> segments;
 
   @override
   Widget build(BuildContext context) {
     final vc = context.vc;
-    final taxi = role == 'Taxi';
-    final segs = taxi
-        ? const [
-            DonutSeg('Terminées', 24, Color(0xFF31D63B)),
-            DonutSeg('Annulées', 3, Color(0xFFFF5252)),
-          ]
-        : const [
-            DonutSeg('Livrées', 41, Color(0xFF31D63B)),
-            DonutSeg('Refusées', 6, Color(0xFFFFC107)),
-          ];
-    final tot = segs.fold<double>(0, (s, e) => s + e.value);
-    final rate = ((segs.first.value / tot) * 100).round();
-
+    final tot = segments.fold<double>(0, (s, e) => s + e.value);
+    final rate =
+        tot == 0 ? 0 : ((segments.first.value / tot) * 100).round();
     return Scaffold(
-      appBar: AppBar(title: const Text('Répartition')),
+      appBar: AppBar(title: Text(tr('repartition'))),
       body: ListView(
         padding: const EdgeInsets.all(18),
         children: [
           Center(
             child: DonutChart(
-              segments: segs,
-              centerValue: '$rate%',
-              centerLabel: 'réussite',
-            ),
+                segments: segments,
+                centerValue: '$rate%',
+                centerLabel: tr('success')),
           ),
           const SizedBox(height: 24),
-          for (final s in segs)
+          for (final s in segments)
             Container(
               margin: const EdgeInsets.only(bottom: 12),
               padding: const EdgeInsets.all(16),
@@ -1413,34 +1313,12 @@ class RepartitionDetailScreen extends StatelessWidget {
                             fontWeight: FontWeight.w700)),
                   ),
                   Text(
-                      '${s.value.toInt()} · ${((s.value / tot) * 100).round()}%',
+                      '${s.value.toInt()} · ${tot == 0 ? 0 : ((s.value / tot) * 100).round()}%',
                       style: TextStyle(
                           color: vc.primary, fontWeight: FontWeight.w800)),
                 ],
               ),
             ),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: vc.primary.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.emoji_events, color: vc.primary),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    taxi
-                        ? 'Excellent taux de réussite ! Continuez ainsi.'
-                        : 'Bon taux de livraison. Acceptez plus pour gagner plus.',
-                    style: TextStyle(color: vc.onSurface, height: 1.4),
-                  ),
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );

@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'theme/velox_theme.dart';
 import 'auth_screen.dart';
+import 'i18n/app_lang.dart';
 
 /// Mode de thème global (sombre par défaut).
 final ValueNotifier<ThemeMode> themeModeNotifier =
@@ -33,13 +34,23 @@ class VeloxProApp extends StatelessWidget {
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeModeNotifier,
       builder: (context, mode, _) {
-        return MaterialApp(
-          title: 'VELOX Pro',
-          debugShowCheckedModeBanner: false,
-          theme: veloxTheme(Brightness.light),
-          darkTheme: veloxTheme(Brightness.dark),
-          themeMode: mode,
-          home: const AuthScreen(),
+        return ValueListenableBuilder<String>(
+          valueListenable: localeNotifier,
+          builder: (context, lang, _) {
+            return MaterialApp(
+              title: 'VELOX Pro',
+              debugShowCheckedModeBanner: false,
+              theme: veloxTheme(Brightness.light),
+              darkTheme: veloxTheme(Brightness.dark),
+              themeMode: mode,
+              builder: (context, child) => Directionality(
+                textDirection:
+                    lang == 'ar' ? TextDirection.rtl : TextDirection.ltr,
+                child: child!,
+              ),
+              home: const AuthScreen(),
+            );
+          },
         );
       },
     );

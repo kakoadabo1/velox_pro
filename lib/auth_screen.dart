@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'main.dart';
 import 'theme/velox_theme.dart';
+import 'i18n/app_lang.dart';
 import 'livreur/livreur_shell.dart';
 import 'driver/driver_shell.dart';
 
@@ -193,7 +194,7 @@ class _AuthScreenState extends State<AuthScreen>
                     child: Column(
                       children: [
                         Text(
-                          'Bienvenue 👋',
+                          tr('login_welcome'),
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: vc.onSurface,
@@ -203,7 +204,7 @@ class _AuthScreenState extends State<AuthScreen>
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'Votre espace pro Livreur & Taxi',
+                          tr('login_sub'),
                           textAlign: TextAlign.center,
                           style: TextStyle(color: vc.dim, fontSize: 14),
                         ),
@@ -218,7 +219,7 @@ class _AuthScreenState extends State<AuthScreen>
                   start: 0.24,
                   child: _GlowField(
                     controller: _email,
-                    hint: 'Adresse email',
+                    hint: tr('email_hint'),
                     prefixIcon: Icons.mail_outline,
                     keyboardType: TextInputType.emailAddress,
                     validator: (v) => (v == null || !v.contains('@'))
@@ -233,7 +234,7 @@ class _AuthScreenState extends State<AuthScreen>
                   start: 0.3,
                   child: _GlowField(
                     controller: _password,
-                    hint: 'Mot de passe',
+                    hint: tr('password_hint'),
                     prefixIcon: Icons.lock_outline,
                     obscure: _obscure,
                     validator: (v) => (v == null || v.length < 4)
@@ -262,7 +263,7 @@ class _AuthScreenState extends State<AuthScreen>
                   controller: _intro,
                   start: 0.38,
                   child: Text(
-                    'Connectez-vous en tant que',
+                    tr('connect_as'),
                     textAlign: TextAlign.center,
                     style: TextStyle(
                         color: vc.dim,
@@ -278,7 +279,7 @@ class _AuthScreenState extends State<AuthScreen>
                   start: 0.44,
                   child: _RoleButton(
                     icon: Icons.two_wheeler,
-                    label: 'LIVREUR',
+                    label: tr('btn_livreur'),
                     filled: true,
                     loading: _loadingRole == 'livreur',
                     enabled: !busy,
@@ -291,7 +292,7 @@ class _AuthScreenState extends State<AuthScreen>
                   start: 0.5,
                   child: _RoleButton(
                     icon: Icons.local_taxi,
-                    label: 'TAXI VTC',
+                    label: tr('btn_taxi'),
                     filled: false,
                     loading: _loadingRole == 'driver',
                     enabled: !busy,
