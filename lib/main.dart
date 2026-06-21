@@ -4,16 +4,24 @@ import 'firebase_options.dart';
 import 'theme/velox_theme.dart';
 import 'auth_screen.dart';
 
-/// Mode de thème global (sombre par défaut). Le bouton soleil/lune de l'écran
-/// d'accueil bascule entre clair et sombre.
+/// Mode de thème global (sombre par défaut).
 final ValueNotifier<ThemeMode> themeModeNotifier =
     ValueNotifier<ThemeMode>(ThemeMode.dark);
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+
+  // On tente d'initialiser Firebase, mais on NE BLOQUE PAS le démarrage si ça
+  // échoue : l'app s'ouvre quand même et l'erreur s'affiche dans la console.
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (e, s) {
+    debugPrint('ERREUR init Firebase: $e');
+    debugPrint('$s');
+  }
+
   runApp(const VeloxProApp());
 }
 
