@@ -243,16 +243,23 @@ class _LivreurActiveState extends State<_LivreurActive> {
 
   Future<void> _launch(Uri uri) async {
     try {
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      } else if (mounted) {
+      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!ok && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('Aucune application disponible'),
+              content: Text('Impossible d\'ouvrir l\'application'),
               behavior: SnackBarBehavior.floating),
         );
       }
-    } catch (_) {}
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Impossible d\'ouvrir l\'application'),
+              behavior: SnackBarBehavior.floating),
+        );
+      }
+    }
   }
 
   @override
