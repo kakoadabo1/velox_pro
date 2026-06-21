@@ -78,10 +78,28 @@ class _DriverShellState extends State<DriverShell> {
       const ParametresScreen(role: 'Taxi'),
     ];
 
+    final titles = ['VELOX Taxi', 'Courses', 'Course en cours', 'Paramètres'];
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('VELOX Taxi',
-            style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: 1)),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(titles[_tab],
+                style: const TextStyle(
+                    fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+            const SizedBox(width: 8),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: _online ? vc.primary : vc.dim,
+              ),
+            ),
+          ],
+        ),
         leading: IconButton(
           icon: const Icon(Icons.logout),
           tooltip: 'Se déconnecter',
@@ -139,14 +157,26 @@ class _DriverHome extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         const NoteCard(role: 'Taxi'),
+        const SizedBox(height: 14),
+        const PerformanceCard(role: 'Taxi'),
+        const SizedBox(height: 14),
+        const RepartitionCard(role: 'Taxi'),
         const SizedBox(height: 18),
-        Text(
-          onRide
-              ? 'Course en cours — voir l\'onglet En cours.'
-              : (online
-                  ? 'Une demande de course va arriver…'
-                  : 'Passez en ligne pour recevoir des courses.'),
-          style: TextStyle(color: vc.dim),
+        Row(
+          children: [
+            Icon(Icons.info_outline, color: vc.primary, size: 18),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                onRide
+                    ? 'Course en cours — voir l\'onglet En cours.'
+                    : (online
+                        ? 'Une demande de course va arriver…'
+                        : 'Passez en ligne pour recevoir des courses.'),
+                style: TextStyle(color: vc.dim),
+              ),
+            ),
+          ],
         ),
       ],
     );

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../theme/velox_theme.dart';
 import '../common/pro_common.dart';
 import '../services/firestore_service.dart';
@@ -30,10 +31,28 @@ class _LivreurShellState extends State<LivreurShell> {
       const ParametresScreen(role: 'Livreur'),
     ];
 
+    final titles = ['VELOX Livreur', 'Commandes', 'Livraison en cours', 'Paramètres'];
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('VELOX Livreur',
-            style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: 1)),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(titles[_tab],
+                style: const TextStyle(
+                    fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+            const SizedBox(width: 8),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: _online ? vc.primary : vc.dim,
+              ),
+            ),
+          ],
+        ),
         leading: IconButton(
           icon: const Icon(Icons.logout),
           tooltip: 'Se déconnecter',
@@ -91,12 +110,22 @@ class _LivreurHome extends StatelessWidget {
             Expanded(child: ProStat(label: 'Livraisons', value: 11)),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
+        const PerformanceCard(role: 'Livreur'),
+        const SizedBox(height: 14),
+        const RepartitionCard(role: 'Livreur'),
+        const SizedBox(height: 14),
         const NoteCard(role: 'Livreur'),
         const SizedBox(height: 18),
-        Text('Astuce',
-            style:
-                TextStyle(color: vc.onSurface, fontWeight: FontWeight.w700)),
+        Row(
+          children: [
+            Icon(Icons.lightbulb_outline, color: vc.primary, size: 18),
+            const SizedBox(width: 6),
+            Text('Astuce',
+                style: TextStyle(
+                    color: vc.onSurface, fontWeight: FontWeight.w700)),
+          ],
+        ),
         const SizedBox(height: 6),
         Text(
           online
@@ -212,6 +241,20 @@ class _LivreurActiveState extends State<_LivreurActive> {
   final _steps = ['Accepté', 'En route resto', 'Commande récupérée', 'Livrée'];
   int _step = 1;
 
+  Future<void> _launch(Uri uri) async {
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Aucune application disponible'),
+              behavior: SnackBarBehavior.floating),
+        );
+      }
+    } catch (_) {}
+  }
+
   @override
   Widget build(BuildContext context) {
     final vc = context.vc;
@@ -251,6 +294,27 @@ class _LivreurActiveState extends State<_LivreurActive> {
                 ],
               ),
             ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _launch(Uri.parse(
+                      'https://www.google.com/maps/dir/?api=1&destination=Djibouti')),
+                  icon: const Icon(Icons.navigation),
+                  label: const Text('Naviguer'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _launch(Uri.parse('tel:+25377000000')),
+                  icon: const Icon(Icons.phone),
+                  label: const Text('Appeler'),
+                ),
+              ),
+            ],
+          ),
           const Spacer(),
           SafeArea(
             top: false,
