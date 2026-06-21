@@ -37,6 +37,13 @@ jobs:
             [ -d /tmp/keep/assets ] && cp -r /tmp/keep/assets ./assets || true
           fi
 
+      - name: Set app name
+        run: |
+          MAN=android/app/src/main/AndroidManifest.xml
+          if [ -f "$MAN" ]; then
+            sed -i 's/android:label="[^"]*"/android:label="VELOX Partenaire"/' "$MAN"
+          fi
+
       - name: Force minSdk 23
         run: |
           GRADLE=android/app/build.gradle.kts
