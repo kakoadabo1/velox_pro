@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../theme/velox_theme.dart';
+import '../main.dart';
 
 /// Nom affiché du partenaire, déduit du compte connecté.
 /// Ex: "karim.h@velox.dj" -> "Karim H".
@@ -366,40 +368,27 @@ class AvisScreen extends StatelessWidget {
   }
 }
 
-/// Onglet "Paramètres" : menu façon tiroir (comme le concurrent).
+/// ───────────────────────── PARAMÈTRES (épuré + fonctionnel) ─────────────────
 class ParametresScreen extends StatelessWidget {
-  const ParametresScreen({
-    super.key,
-    required this.role,
-    required this.online,
-    required this.onToggleOnline,
-  });
+  const ParametresScreen({super.key, required this.role});
   final String role;
-  final bool online;
-  final ValueChanged<bool> onToggleOnline;
-
-  void _soon(BuildContext context, String label) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-          content: Text('$label — bientôt disponible'),
-          behavior: SnackBarBehavior.floating),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
     final vc = context.vc;
-    Widget tile(IconData icon, String label,
-        {VoidCallback? onTap, Widget? trailing}) {
+
+    Widget tile(IconData icon, String label, String sub, Widget page) {
       return Column(
         children: [
           ListTile(
             leading: Icon(icon, color: vc.primary),
             title: Text(label,
                 style: TextStyle(
-                    color: vc.onSurface, fontWeight: FontWeight.w600)),
-            trailing: trailing ?? Icon(Icons.chevron_right, color: vc.dim),
-            onTap: onTap ?? () => _soon(context, label),
+                    color: vc.onSurface, fontWeight: FontWeight.w700)),
+            subtitle: Text(sub, style: TextStyle(color: vc.dim, fontSize: 12)),
+            trailing: Icon(Icons.chevron_right, color: vc.dim),
+            onTap: () => Navigator.of(context)
+                .push(MaterialPageRoute(builder: (_) => page)),
           ),
           Divider(height: 1, color: vc.line),
         ],
@@ -407,50 +396,394 @@ class ParametresScreen extends StatelessWidget {
     }
 
     return ListView(
+      padding: const EdgeInsets.symmetric(vertical: 8),
       children: [
-        // Indisponible = inverse de "en ligne"
-        Column(
-          children: [
-            SwitchListTile(
-              value: !online,
-              activeColor: vc.primary,
-              title: Text('Indisponible',
-                  style: TextStyle(
-                      color: vc.onSurface, fontWeight: FontWeight.w600)),
-              subtitle: Text(
-                online ? 'Vous êtes en ligne' : 'Vous êtes hors ligne',
-                style: TextStyle(color: vc.dim, fontSize: 12),
-              ),
-              onChanged: (v) => onToggleOnline(!v),
-            ),
-            Divider(height: 1, color: vc.line),
-          ],
-        ),
-        tile(Icons.star_outline, 'Avis',
-            onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => AvisScreen(role: role)),
-                )),
-        tile(Icons.history, 'Historique'),
-        tile(Icons.account_balance_wallet_outlined, 'Gains'),
-        tile(
-          Icons.chat_bubble_outline,
-          'Chat with us',
-          trailing: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: const BoxDecoration(
-              color: Colors.red,
-              borderRadius: BorderRadius.all(Radius.circular(20)),
-            ),
-            child: const Text('11',
-                style: TextStyle(
-                    color: Colors.white, fontWeight: FontWeight.w800)),
-          ),
-        ),
-        tile(Icons.campaign_outlined, 'Annonces'),
-        tile(Icons.settings_outlined, 'Réglages'),
-        tile(Icons.school_outlined, 'Didacticiel'),
-        tile(Icons.support_agent, 'Soutien'),
+        tile(Icons.person_outline, 'Profil', 'Vos informations',
+            ProfilScreen(role: role)),
+        tile(Icons.account_balance_wallet_outlined, 'Mes gains',
+            'Détail des revenus', GainsScreen(role: role)),
+        tile(Icons.history, 'Historique', 'Vos missions passées',
+            HistoriqueScreen(role: role)),
+        tile(Icons.star_outline, 'Avis clients', 'Ce que disent les clients',
+            AvisScreen(role: role)),
+        tile(Icons.tune, 'Réglages', 'Thème, notifications',
+            const ReglagesScreen()),
+        tile(Icons.support_agent, 'Aide & support', 'Nous contacter',
+            const SupportScreen()),
       ],
+    );
+  }
+}
+
+/// ───────────────────────── PROFIL ──────────────────────────────────────────
+class ProfilScreen extends StatelessWidget {
+  const ProfilScreen({super.key, required this.role});
+  final String role;
+
+  @override
+  Widget build(BuildContext context) {
+    final vc = context.vc;
+    final email = FirebaseAuth.instance.currentUser?.email ?? '—';
+    final note = role == 'Taxi' ? '4.9' : '4.8';
+
+    Widget info(IconData ic, String label, String value) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Row(
+            children: [
+              Icon(ic, color: vc.primary, size: 20),
+              const SizedBox(width: 12),
+              Text(label, style: TextStyle(color: vc.dim)),
+              const Spacer(),
+              Flexible(
+                child: Text(value,
+                    textAlign: TextAlign.end,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        color: vc.onSurface, fontWeight: FontWeight.w600)),
+              ),
+            ],
+          ),
+        );
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Profil')),
+      body: ListView(
+        padding: const EdgeInsets.all(18),
+        children: [
+          Center(
+            child: Column(
+              children: [
+                Container(
+                  width: 84,
+                  height: 84,
+                  decoration: BoxDecoration(
+                    color: vc.primary.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: vc.primary, width: 2),
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(
+                      role == 'Taxi' ? Icons.local_taxi : Icons.two_wheeler,
+                      color: vc.primary,
+                      size: 38),
+                ),
+                const SizedBox(height: 12),
+                Text('Mr ${proDisplayName()}',
+                    style: TextStyle(
+                        color: vc.onSurface,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900)),
+                Text(role == 'Taxi' ? 'Chauffeur VTC' : 'Livreur partenaire',
+                    style: TextStyle(color: vc.primary)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            decoration: BoxDecoration(
+              color: vc.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: vc.line),
+            ),
+            child: Column(
+              children: [
+                info(Icons.email_outlined, 'Email', email),
+                Divider(height: 1, color: vc.line),
+                info(Icons.badge_outlined, 'Statut', 'Partenaire vérifié'),
+                Divider(height: 1, color: vc.line),
+                info(Icons.star, 'Note', '$note ★'),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            height: 52,
+            child: OutlinedButton.icon(
+              onPressed: () async {
+                await FirebaseAuth.instance.signOut();
+                if (context.mounted) {
+                  Navigator.of(context).popUntil((r) => r.isFirst);
+                }
+              },
+              icon: const Icon(Icons.logout),
+              label: const Text('Se déconnecter'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// ───────────────────────── GAINS ───────────────────────────────────────────
+class GainsScreen extends StatelessWidget {
+  const GainsScreen({super.key, required this.role});
+  final String role;
+
+  @override
+  Widget build(BuildContext context) {
+    final vc = context.vc;
+    final today = role == 'Taxi' ? 8450 : 4200;
+    final week = role == 'Taxi' ? 41200 : 24800;
+    final month = role == 'Taxi' ? 168000 : 96500;
+
+    Widget big(String label, int value) => Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: vc.surface,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: vc.line),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: TextStyle(color: vc.dim, fontSize: 13)),
+              const SizedBox(height: 6),
+              TweenAnimationBuilder<int>(
+                tween: IntTween(begin: 0, end: value),
+                duration: const Duration(milliseconds: 900),
+                builder: (context, v, _) => Text('$v DJF',
+                    style: TextStyle(
+                        color: vc.primary,
+                        fontSize: 30,
+                        fontWeight: FontWeight.w900)),
+              ),
+            ],
+          ),
+        );
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Mes gains')),
+      body: ListView(
+        padding: const EdgeInsets.all(18),
+        children: [
+          big("Aujourd'hui", today),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(child: ProStat(label: 'Cette semaine', value: week, unit: 'DJF')),
+              const SizedBox(width: 12),
+              Expanded(child: ProStat(label: 'Ce mois', value: month, unit: 'DJF')),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Text('Derniers versements',
+              style: TextStyle(
+                  color: vc.onSurface, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 10),
+          for (final p in const [
+            ['Lun.', 3800],
+            ['Mar.', 5200],
+            ['Mer.', 4100],
+            ['Jeu.', 6300],
+          ])
+            Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: vc.surface,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: vc.line),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('${p[0]}', style: TextStyle(color: vc.dim)),
+                  Text('+${p[1]} DJF',
+                      style: TextStyle(
+                          color: vc.primary, fontWeight: FontWeight.w800)),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// ───────────────────────── HISTORIQUE ──────────────────────────────────────
+class HistoriqueScreen extends StatelessWidget {
+  const HistoriqueScreen({super.key, required this.role});
+  final String role;
+
+  @override
+  Widget build(BuildContext context) {
+    final vc = context.vc;
+    final items = role == 'Taxi'
+        ? const [
+            ['Héron → Aéroport', '1 800 DJF', "Aujourd'hui 11:20"],
+            ['Balbala → Centre', '900 DJF', "Aujourd'hui 09:05"],
+            ['Gabode → Plateau', '1 200 DJF', 'Hier 18:40'],
+          ]
+        : const [
+            ['Chez Ayan → Inès A.', '450 DJF', "Aujourd'hui 12:10"],
+            ['Pizza Layla → Omar S.', '600 DJF', "Aujourd'hui 10:30"],
+            ['Le Gourmet → Farah M.', '500 DJF', 'Hier 19:15'],
+          ];
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Historique')),
+      body: ListView(
+        padding: const EdgeInsets.all(18),
+        children: [
+          for (final it in items)
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: vc.surface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: vc.line),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.check_circle, color: vc.primary),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('${it[0]}',
+                            style: TextStyle(
+                                color: vc.onSurface,
+                                fontWeight: FontWeight.w700)),
+                        Text('${it[2]}',
+                            style:
+                                TextStyle(color: vc.dim, fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                  Text('${it[1]}',
+                      style: TextStyle(
+                          color: vc.primary, fontWeight: FontWeight.w800)),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// ───────────────────────── RÉGLAGES ────────────────────────────────────────
+class ReglagesScreen extends StatefulWidget {
+  const ReglagesScreen({super.key});
+  @override
+  State<ReglagesScreen> createState() => _ReglagesScreenState();
+}
+
+class _ReglagesScreenState extends State<ReglagesScreen> {
+  bool _notifs = true;
+
+  @override
+  Widget build(BuildContext context) {
+    final vc = context.vc;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Réglages')),
+      body: ListView(
+        children: [
+          SwitchListTile(
+            value: isDark,
+            activeColor: vc.primary,
+            secondary: Icon(Icons.dark_mode, color: vc.primary),
+            title: Text('Mode sombre',
+                style: TextStyle(
+                    color: vc.onSurface, fontWeight: FontWeight.w600)),
+            onChanged: (v) =>
+                themeModeNotifier.value = v ? ThemeMode.dark : ThemeMode.light,
+          ),
+          Divider(height: 1, color: vc.line),
+          SwitchListTile(
+            value: _notifs,
+            activeColor: vc.primary,
+            secondary: Icon(Icons.notifications_active_outlined,
+                color: vc.primary),
+            title: Text('Notifications',
+                style: TextStyle(
+                    color: vc.onSurface, fontWeight: FontWeight.w600)),
+            subtitle: Text('Nouvelles missions et messages',
+                style: TextStyle(color: vc.dim, fontSize: 12)),
+            onChanged: (v) => setState(() => _notifs = v),
+          ),
+          Divider(height: 1, color: vc.line),
+          ListTile(
+            leading: Icon(Icons.language, color: vc.primary),
+            title: Text('Langue',
+                style: TextStyle(
+                    color: vc.onSurface, fontWeight: FontWeight.w600)),
+            trailing: Text('Français', style: TextStyle(color: vc.dim)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// ───────────────────────── SUPPORT ─────────────────────────────────────────
+class SupportScreen extends StatelessWidget {
+  const SupportScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final vc = context.vc;
+
+    Widget row(IconData ic, String label, String value) => Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: vc.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: vc.line),
+          ),
+          child: Row(
+            children: [
+              Icon(ic, color: vc.primary),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(label, style: TextStyle(color: vc.dim, fontSize: 12)),
+                    Text(value,
+                        style: TextStyle(
+                            color: vc.onSurface,
+                            fontWeight: FontWeight.w700)),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: Icon(Icons.copy, color: vc.dim, size: 20),
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: value));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content: Text('Copié'),
+                        behavior: SnackBarBehavior.floating),
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Aide & support')),
+      body: ListView(
+        padding: const EdgeInsets.all(18),
+        children: [
+          Text('Besoin d\'aide ? Contactez l\'équipe VELOX.',
+              style: TextStyle(color: vc.dim, height: 1.4)),
+          const SizedBox(height: 16),
+          row(Icons.phone, 'Téléphone', '+253 77 00 00 00'),
+          row(Icons.chat, 'WhatsApp', '+253 77 00 00 00'),
+          row(Icons.email_outlined, 'Email', 'support@velox.dj'),
+          const SizedBox(height: 8),
+          Text('Horaires : 7j/7, de 7h à 23h.',
+              style: TextStyle(color: vc.dim)),
+        ],
+      ),
     );
   }
 }

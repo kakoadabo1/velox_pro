@@ -73,7 +73,7 @@ class _DriverShellState extends State<DriverShell> {
               icon: Icons.local_taxi_outlined,
             ),
       ParametresScreen(
-          role: 'Taxi', online: _online, onToggleOnline: _setOnline),
+          role: 'Taxi'),
     ];
 
     return Scaffold(
