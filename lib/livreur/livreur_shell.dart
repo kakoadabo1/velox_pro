@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../theme/velox_theme.dart';
 import '../common/pro_common.dart';
+import '../services/firestore_service.dart';
 
 class LivreurShell extends StatefulWidget {
   const LivreurShell({super.key});
@@ -14,7 +15,10 @@ class _LivreurShellState extends State<LivreurShell> {
   int _tab = 0;
   bool _online = false; // statut conservé entre les onglets
 
-  void _setOnline(bool v) => setState(() => _online = v);
+  void _setOnline(bool v) {
+    setState(() => _online = v);
+    FirestoreService.setPartnerOnline(role: 'livreur', online: v);
+  }
 
   @override
   Widget build(BuildContext context) {

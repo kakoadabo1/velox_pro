@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../theme/velox_theme.dart';
 import '../common/pro_common.dart';
+import '../services/firestore_service.dart';
 
 class DriverShell extends StatefulWidget {
   const DriverShell({super.key});
@@ -25,6 +27,7 @@ class _DriverShellState extends State<DriverShell> {
 
   void _setOnline(bool v) {
     setState(() => _online = v);
+    FirestoreService.setPartnerOnline(role: 'driver', online: v);
     _incoming?.cancel();
     if (_online && !_onRide) {
       _incoming = Timer(const Duration(seconds: 2), _showRideRequest);
@@ -72,8 +75,7 @@ class _DriverShellState extends State<DriverShell> {
               subtitle: 'Aucune course en cours pour le moment.',
               icon: Icons.local_taxi_outlined,
             ),
-      ParametresScreen(
-          role: 'Taxi'),
+      const ParametresScreen(role: 'Taxi'),
     ];
 
     return Scaffold(
@@ -362,6 +364,20 @@ class _ActiveRideState extends State<_ActiveRide> {
     super.dispose();
   }
 
+  Future<void> _launch(Uri uri) async {
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Aucune application disponible'),
+              behavior: SnackBarBehavior.floating),
+        );
+      }
+    } catch (_) {}
+  }
+
   @override
   Widget build(BuildContext context) {
     final vc = context.vc;
@@ -407,7 +423,8 @@ class _ActiveRideState extends State<_ActiveRide> {
             children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: () {},
+                  onPressed: () => _launch(Uri.parse(
+                      'https://www.google.com/maps/dir/?api=1&destination=Aeroport+de+Djibouti')),
                   icon: const Icon(Icons.navigation),
                   label: const Text('Naviguer'),
                 ),
@@ -415,7 +432,7 @@ class _ActiveRideState extends State<_ActiveRide> {
               const SizedBox(width: 10),
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: () {},
+                  onPressed: () => _launch(Uri.parse('tel:+25377000000')),
                   icon: const Icon(Icons.phone),
                   label: const Text('Appeler'),
                 ),

@@ -1,0 +1,46 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function myUid() { return request.auth.uid; }
+
+    // Partenaires : chacun gère son propre document de statut.
+    match /partners/{uid} {
+      allow read: if signedIn();
+      allow write: if signedIn() && uid == myUid();
+    }
+
+    // Restaurants : lisibles par tous les connectés ; écriture par le proprio.
+    match /restaurants/{id} {
+      allow read: if signedIn();
+      allow write: if signedIn() && request.resource.data.ownerId == myUid();
+    }
+
+    // Commandes de livraison.
+    match /orders/{id} {
+      allow read: if signedIn();
+      // Le client crée la commande à son nom.
+      allow create: if signedIn() && request.resource.data.clientId == myUid();
+      // Mise à jour autorisée pour le client, le resto concerné, ou le livreur
+      // qui s'assigne / met à jour le statut.
+      allow update: if signedIn();
+      allow delete: if false;
+    }
+
+    // Courses taxi.
+    match /rides/{id} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.clientId == myUid();
+      allow update: if signedIn();
+      allow delete: if false;
+    }
+
+    // Avis.
+    match /reviews/{id} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.authorId == myUid();
+      allow update, delete: if false;
+    }
+  }
+}
