@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../theme/velox_theme.dart';
 
 class DriverShell extends StatefulWidget {
@@ -58,8 +59,11 @@ class _DriverShellState extends State<DriverShell> {
             style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: 1)),
         leading: IconButton(
           icon: const Icon(Icons.logout),
-          tooltip: 'Changer de rôle',
-          onPressed: () => Navigator.of(context).pop(),
+          tooltip: 'Se déconnecter',
+          onPressed: () async {
+            await FirebaseAuth.instance.signOut();
+            if (context.mounted) Navigator.of(context).pop();
+          },
         ),
       ),
       body: _onRide
@@ -247,7 +251,7 @@ class _ActiveRideState extends State<_ActiveRide> {
     super.initState();
     _t = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
-      setState(() => _eta = _eta > 5 ? _eta - 5 : 0);
+      setState(() => _eta = _eta > 0 ? _eta - 1 : 0);
     });
   }
 
@@ -312,12 +316,15 @@ class _ActiveRideState extends State<_ActiveRide> {
             ],
           ),
           const Spacer(),
-          SizedBox(
-            width: double.infinity,
-            height: 52,
-            child: FilledButton(
-              onPressed: widget.onEnd,
-              child: const Text('Terminer la course'),
+          SafeArea(
+            top: false,
+            child: SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: FilledButton(
+                onPressed: widget.onEnd,
+                child: const Text('Terminer la course'),
+              ),
             ),
           ),
         ],

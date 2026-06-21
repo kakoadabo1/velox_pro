@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../theme/velox_theme.dart';
 
 class LivreurShell extends StatefulWidget {
@@ -27,8 +28,11 @@ class _LivreurShellState extends State<LivreurShell> {
             style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: 1)),
         leading: IconButton(
           icon: const Icon(Icons.logout),
-          tooltip: 'Changer de rôle',
-          onPressed: () => Navigator.of(context).pop(),
+          tooltip: 'Se déconnecter',
+          onPressed: () async {
+            await FirebaseAuth.instance.signOut();
+            if (context.mounted) Navigator.of(context).pop();
+          },
         ),
       ),
       body: pages[_tab],
@@ -269,16 +273,19 @@ class _LivreurActiveState extends State<_LivreurActive> {
               ),
             ),
           const Spacer(),
-          SizedBox(
-            width: double.infinity,
-            height: 52,
-            child: FilledButton(
-              onPressed: _step < _steps.length - 1
-                  ? () => setState(() => _step++)
-                  : null,
-              child: Text(_step < _steps.length - 1
-                  ? 'Étape suivante'
-                  : 'Livraison terminée ✓'),
+          SafeArea(
+            top: false,
+            child: SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: FilledButton(
+                onPressed: _step < _steps.length - 1
+                    ? () => setState(() => _step++)
+                    : null,
+                child: Text(_step < _steps.length - 1
+                    ? 'Étape suivante'
+                    : 'Livraison terminée ✓'),
+              ),
             ),
           ),
         ],

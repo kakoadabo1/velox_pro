@@ -2,13 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'main.dart';
 import 'theme/velox_theme.dart';
-import 'role_selection_screen.dart';
+import 'livreur/livreur_shell.dart';
+import 'driver/driver_shell.dart';
 
-/// Écran de connexion. Après authentification réussie, on redirige vers
-/// l'écran de choix de rôle (Livreur / Taxi VTC).
-///
-/// L'auth est ici SIMULÉE (validation des champs non vides). Branche Firebase
-/// Auth à l'endroit indiqué dans `_signIn`.
+/// Page de connexion VELOX : logo animé + email/mot de passe, et en bas les
+/// deux boutons de rôle (Livreur / Taxi VTC). Taper un bouton connecte ET
+/// redirige vers la page du rôle choisi.
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
 
@@ -16,34 +15,50 @@ class AuthScreen extends StatefulWidget {
   State<AuthScreen> createState() => _AuthScreenState();
 }
 
-class _AuthScreenState extends State<AuthScreen> {
+class _AuthScreenState extends State<AuthScreen>
+    with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _email = TextEditingController();
   final _password = TextEditingController();
   bool _obscure = true;
-  bool _loading = false;
+  String? _loadingRole; // 'livreur' | 'driver' | null
+
+  late final AnimationController _intro;
+  late final AnimationController _pulse;
+
+  @override
+  void initState() {
+    super.initState();
+    _intro = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 1000))
+      ..forward();
+    _pulse = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 1800))
+      ..repeat(reverse: true);
+  }
 
   @override
   void dispose() {
+    _intro.dispose();
+    _pulse.dispose();
     _email.dispose();
     _password.dispose();
     super.dispose();
   }
 
-  Future<void> _signIn() async {
+  Future<void> _signInAs(String role) async {
     if (!_formKey.currentState!.validate()) return;
-    setState(() => _loading = true);
-
+    setState(() => _loadingRole = role);
     try {
       await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: _email.text.trim(),
         password: _password.text,
       );
       if (!mounted) return;
-      // Connecté → on va au choix de rôle.
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const RoleSelectionScreen()),
-      );
+      final Widget shell =
+          role == 'livreur' ? const LivreurShell() : const DriverShell();
+      Navigator.of(context)
+          .push(MaterialPageRoute(builder: (_) => shell));
     } on FirebaseAuthException catch (e) {
       final msg = switch (e.code) {
         'invalid-email' => 'Adresse email invalide.',
@@ -71,7 +86,7 @@ class _AuthScreenState extends State<AuthScreen> {
         );
       }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) setState(() => _loadingRole = null);
     }
   }
 
@@ -79,11 +94,12 @@ class _AuthScreenState extends State<AuthScreen> {
   Widget build(BuildContext context) {
     final vc = context.vc;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final busy = _loadingRole != null;
 
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 28),
           child: Form(
             key: _formKey,
             child: Column(
@@ -98,104 +114,287 @@ class _AuthScreenState extends State<AuthScreen> {
                         color: vc.dim),
                   ),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  'VELOX',
-                  style: TextStyle(
-                    color: vc.primary,
-                    fontSize: 40,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 3,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text('Connexion espace pro',
-                    style: TextStyle(color: vc.dim, fontSize: 15)),
-                const SizedBox(height: 32),
 
-                _GlowField(
-                  controller: _email,
-                  hint: 'Adresse email',
-                  keyboardType: TextInputType.emailAddress,
-                  validator: (v) =>
-                      (v == null || !v.contains('@')) ? 'Email invalide' : null,
-                  enabled: !_loading,
-                ),
-                const SizedBox(height: 16),
-                _GlowField(
-                  controller: _password,
-                  hint: 'Mot de passe',
-                  obscure: _obscure,
-                  validator: (v) =>
-                      (v == null || v.length < 4) ? '4 caractères minimum' : null,
-                  enabled: !_loading,
-                  suffix: GestureDetector(
-                    onTap: () => setState(() => _obscure = !_obscure),
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 200),
-                      transitionBuilder: (c, a) =>
-                          ScaleTransition(scale: a, child: FadeTransition(opacity: a, child: c)),
-                      child: Icon(
-                        _obscure ? Icons.visibility_off : Icons.visibility,
-                        key: ValueKey(_obscure),
-                        color: vc.dim,
+                // ── Logo animé ──
+                _Appear(
+                  controller: _intro,
+                  start: 0.0,
+                  child: Center(
+                    child: AnimatedBuilder(
+                      animation: _pulse,
+                      builder: (context, child) {
+                        final t = _pulse.value;
+                        return Container(
+                          width: 132,
+                          height: 132,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: vc.primary.withValues(alpha: 0.25 + 0.2 * t),
+                                blurRadius: 24 + 16 * t,
+                                spreadRadius: 1 + 2 * t,
+                              ),
+                            ],
+                          ),
+                          child: child,
+                        );
+                      },
+                      child: ClipOval(
+                        child: Image.asset(
+                          'assets/logo.png',
+                          width: 132,
+                          height: 132,
+                          fit: BoxFit.cover,
+                          // Repli si le logo n'est pas encore ajouté.
+                          errorBuilder: (context, error, stack) => Container(
+                            width: 132,
+                            height: 132,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: vc.surface,
+                              border: Border.all(color: vc.primary, width: 3),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              'V',
+                              style: TextStyle(
+                                color: vc.primary,
+                                fontSize: 64,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 24),
-
-                SizedBox(
-                  height: 54,
-                  child: FilledButton(
-                    onPressed: _loading ? null : _signIn,
-                    child: _loading
-                        ? const SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('SE CONNECTER',
-                            style: TextStyle(
-                                fontWeight: FontWeight.w800, letterSpacing: 1)),
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                Row(
-                  children: [
-                    Expanded(child: Divider(color: vc.line)),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Text('ou', style: TextStyle(color: vc.dim)),
+                const SizedBox(height: 18),
+                _Appear(
+                  controller: _intro,
+                  start: 0.1,
+                  child: Text(
+                    'VELOX',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: vc.primary,
+                      fontSize: 34,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 4,
                     ),
-                    Expanded(child: Divider(color: vc.line)),
-                  ],
-                ),
-                const SizedBox(height: 20),
-
-                OutlinedButton.icon(
-                  onPressed: _loading
-                      ? null
-                      : () => ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                  'Connexion par téléphone (OTP) à brancher.'),
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          ),
-                  icon: const Icon(Icons.phone_android),
-                  label: const Text('Se connecter avec Téléphone'),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(52),
                   ),
                 ),
-                const SizedBox(height: 24),
+                _Appear(
+                  controller: _intro,
+                  start: 0.16,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      'Connexion · espace pro',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: vc.dim, fontSize: 14),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 30),
+
+                _Appear(
+                  controller: _intro,
+                  start: 0.24,
+                  child: _GlowField(
+                    controller: _email,
+                    hint: 'Adresse email',
+                    keyboardType: TextInputType.emailAddress,
+                    validator: (v) => (v == null || !v.contains('@'))
+                        ? 'Email invalide'
+                        : null,
+                    enabled: !busy,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _Appear(
+                  controller: _intro,
+                  start: 0.3,
+                  child: _GlowField(
+                    controller: _password,
+                    hint: 'Mot de passe',
+                    obscure: _obscure,
+                    validator: (v) => (v == null || v.length < 4)
+                        ? '4 caractères minimum'
+                        : null,
+                    enabled: !busy,
+                    suffix: GestureDetector(
+                      onTap: () => setState(() => _obscure = !_obscure),
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 200),
+                        transitionBuilder: (c, a) => ScaleTransition(
+                            scale: a,
+                            child: FadeTransition(opacity: a, child: c)),
+                        child: Icon(
+                          _obscure ? Icons.visibility_off : Icons.visibility,
+                          key: ValueKey(_obscure),
+                          color: vc.dim,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 28),
+
+                _Appear(
+                  controller: _intro,
+                  start: 0.38,
+                  child: Text(
+                    'Connectez-vous en tant que',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        color: vc.dim,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600),
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                // ── 2 boutons de rôle (connexion + redirection) ──
+                _Appear(
+                  controller: _intro,
+                  start: 0.44,
+                  child: _RoleButton(
+                    icon: Icons.two_wheeler,
+                    label: 'LIVREUR',
+                    filled: true,
+                    loading: _loadingRole == 'livreur',
+                    enabled: !busy,
+                    onTap: () => _signInAs('livreur'),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                _Appear(
+                  controller: _intro,
+                  start: 0.5,
+                  child: _RoleButton(
+                    icon: Icons.local_taxi,
+                    label: 'TAXI VTC',
+                    filled: false,
+                    loading: _loadingRole == 'driver',
+                    enabled: !busy,
+                    onTap: () => _signInAs('driver'),
+                  ),
+                ),
               ],
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+class _RoleButton extends StatefulWidget {
+  const _RoleButton({
+    required this.icon,
+    required this.label,
+    required this.filled,
+    required this.loading,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool filled;
+  final bool loading;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  State<_RoleButton> createState() => _RoleButtonState();
+}
+
+class _RoleButtonState extends State<_RoleButton> {
+  double _scale = 1;
+
+  @override
+  Widget build(BuildContext context) {
+    final vc = context.vc;
+    final fg = widget.filled ? vc.onPrimary : vc.primary;
+    final active = widget.enabled && !widget.loading;
+
+    return Listener(
+      onPointerDown: active ? (_) => setState(() => _scale = 0.97) : null,
+      onPointerUp: (_) => setState(() => _scale = 1),
+      onPointerCancel: (_) => setState(() => _scale = 1),
+      child: AnimatedScale(
+        scale: _scale,
+        duration: const Duration(milliseconds: 110),
+        child: SizedBox(
+          height: 60,
+          child: Material(
+            color: widget.filled ? vc.primary : Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: widget.filled
+                  ? BorderSide.none
+                  : BorderSide(color: vc.primary, width: 1.5),
+            ),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: active ? widget.onTap : null,
+              child: Center(
+                child: widget.loading
+                    ? SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: fg),
+                      )
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(widget.icon, color: fg),
+                          const SizedBox(width: 12),
+                          Text(
+                            widget.label,
+                            style: TextStyle(
+                              color: fg,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                        ],
+                      ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Apparition en cascade (fondu + glissé).
+class _Appear extends StatelessWidget {
+  const _Appear(
+      {required this.controller, required this.start, required this.child});
+  final AnimationController controller;
+  final double start;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final end = (start + 0.5).clamp(0.0, 1.0);
+    final anim = CurvedAnimation(
+        parent: controller, curve: Interval(start, end, curve: Curves.easeOut));
+    return AnimatedBuilder(
+      animation: anim,
+      builder: (context, child) => Opacity(
+        opacity: anim.value,
+        child: Transform.translate(
+            offset: Offset(0, 18 * (1 - anim.value)), child: child),
+      ),
+      child: child,
     );
   }
 }
@@ -233,7 +432,8 @@ class _GlowFieldState extends State<_GlowField>
   void initState() {
     super.initState();
     _node = FocusNode()..addListener(_onFocus);
-    _ac = AnimationController(vsync: this, duration: const Duration(milliseconds: 220));
+    _ac = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 220));
   }
 
   void _onFocus() => _node.hasFocus ? _ac.forward() : _ac.reverse();
@@ -256,7 +456,7 @@ class _GlowFieldState extends State<_GlowField>
         return Container(
           decoration: BoxDecoration(
             color: vc.surface,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: Color.lerp(vc.line, vc.primary, t)!,
               width: 1.2 + t * 0.6,
@@ -290,7 +490,8 @@ class _GlowFieldState extends State<_GlowField>
           errorBorder: InputBorder.none,
           focusedErrorBorder: InputBorder.none,
           disabledBorder: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         ),
       ),
     );
