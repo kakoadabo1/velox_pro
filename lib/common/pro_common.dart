@@ -1109,39 +1109,55 @@ class PerformanceCard extends StatelessWidget {
         ? [5200, 3800, 6100, 4900, 7300, 8450, 5600]
         : [2600, 3100, 2900, 3800, 4200, 4500, 3300];
     final total = week.fold<int>(0, (s, e) => s + e);
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            vc.primary.withValues(alpha: 0.22),
-            vc.surface,
-          ],
-        ),
-        border: Border.all(color: vc.line),
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => PerformanceDetailScreen(role: role)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.insights, color: vc.primary, size: 20),
-              const SizedBox(width: 8),
-              Text('Performance · 7 jours',
-                  style: TextStyle(
-                      color: vc.onSurface, fontWeight: FontWeight.w800)),
-              const Spacer(),
-              Text('$total DJF',
-                  style: TextStyle(
-                      color: vc.primary, fontWeight: FontWeight.w900)),
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              vc.primary.withValues(alpha: 0.22),
+              vc.surface,
             ],
           ),
-          const SizedBox(height: 14),
-          WeeklyBarChart(values: week),
-        ],
+          border: Border.all(color: vc.line),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.insights, color: vc.primary, size: 20),
+                const SizedBox(width: 8),
+                Text('Performance · 7 jours',
+                    style: TextStyle(
+                        color: vc.onSurface, fontWeight: FontWeight.w800)),
+                const Spacer(),
+                Text('$total DJF',
+                    style: TextStyle(
+                        color: vc.primary, fontWeight: FontWeight.w900)),
+              ],
+            ),
+            const SizedBox(height: 14),
+            WeeklyBarChart(values: week),
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Text('Voir plus',
+                    style: TextStyle(
+                        color: vc.primary, fontWeight: FontWeight.w700)),
+                Icon(Icons.chevron_right, color: vc.primary, size: 20),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1166,46 +1182,262 @@ class RepartitionCard extends StatelessWidget {
           ];
     final done = segs.first.value.toInt();
     final tot = segs.fold<double>(0, (s, e) => s + e.value).toInt();
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: vc.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: vc.line),
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => RepartitionDetailScreen(role: role)),
       ),
-      child: Row(
-        children: [
-          DonutChart(
-            segments: segs,
-            centerValue: '$done/$tot',
-            centerLabel: role == 'Taxi' ? 'courses' : 'livraisons',
-          ),
-          const SizedBox(width: 18),
-          Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: vc.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: vc.line),
+        ),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                DonutChart(
+                  segments: segs,
+                  centerValue: '$done/$tot',
+                  centerLabel: role == 'Taxi' ? 'courses' : 'livraisons',
+                ),
+                const SizedBox(width: 18),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Répartition',
+                          style: TextStyle(
+                              color: vc.onSurface,
+                              fontWeight: FontWeight.w800)),
+                      const SizedBox(height: 10),
+                      for (final s in segs)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 12,
+                                height: 12,
+                                decoration: BoxDecoration(
+                                    color: s.color, shape: BoxShape.circle),
+                              ),
+                              const SizedBox(width: 8),
+                              Text('${s.label} · ${s.value.toInt()}',
+                                  style: TextStyle(color: vc.dim)),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Text('Voir plus',
+                    style: TextStyle(
+                        color: vc.primary, fontWeight: FontWeight.w700)),
+                Icon(Icons.chevron_right, color: vc.primary, size: 20),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// ───────────────────── DÉTAIL PERFORMANCE ──────────────────────────────────
+class PerformanceDetailScreen extends StatefulWidget {
+  const PerformanceDetailScreen({super.key, required this.role});
+  final String role;
+  @override
+  State<PerformanceDetailScreen> createState() =>
+      _PerformanceDetailScreenState();
+}
+
+class _PerformanceDetailScreenState extends State<PerformanceDetailScreen> {
+  int _period = 0; // 0 = semaine, 1 = mois
+
+  @override
+  Widget build(BuildContext context) {
+    final vc = context.vc;
+    final taxi = widget.role == 'Taxi';
+    final week = taxi
+        ? [5200, 3800, 6100, 4900, 7300, 8450, 5600]
+        : [2600, 3100, 2900, 3800, 4200, 4500, 3300];
+    final month = taxi
+        ? [38000, 41000, 35000, 44000, 39000, 47000, 42000, 45000]
+        : [21000, 24000, 22000, 26000, 23000, 27000, 25000, 24500];
+    final values = _period == 0 ? week : month;
+    final labels = _period == 0
+        ? const ['L', 'M', 'M', 'J', 'V', 'S', 'D']
+        : const ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8'];
+    final total = values.fold<int>(0, (s, e) => s + e);
+    final avg = (total / values.length).round();
+    final best = values.reduce((a, b) => a > b ? a : b);
+
+    Widget stat(String label, String value) => Expanded(
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: vc.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: vc.line),
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Répartition',
+                Text(label, style: TextStyle(color: vc.dim, fontSize: 12)),
+                const SizedBox(height: 6),
+                Text(value,
                     style: TextStyle(
-                        color: vc.onSurface, fontWeight: FontWeight.w800)),
-                const SizedBox(height: 10),
-                for (final s in segs)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 12,
-                          height: 12,
-                          decoration: BoxDecoration(
-                              color: s.color, shape: BoxShape.circle),
-                        ),
-                        const SizedBox(width: 8),
-                        Text('${s.label} · ${s.value.toInt()}',
-                            style: TextStyle(color: vc.dim)),
-                      ],
-                    ),
+                        color: vc.primary,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900)),
+              ],
+            ),
+          ),
+        );
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Performance')),
+      body: ListView(
+        padding: const EdgeInsets.all(18),
+        children: [
+          SegmentedButton<int>(
+            segments: const [
+              ButtonSegment(value: 0, label: Text('Semaine')),
+              ButtonSegment(value: 1, label: Text('Mois')),
+            ],
+            selected: {_period},
+            onSelectionChanged: (s) => setState(() => _period = s.first),
+          ),
+          const SizedBox(height: 18),
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [vc.primary.withValues(alpha: 0.22), vc.surface],
+              ),
+              border: Border.all(color: vc.line),
+            ),
+            child: WeeklyBarChart(values: values, labels: labels),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              stat('Total', '$total DJF'),
+              const SizedBox(width: 12),
+              stat('Moyenne', '$avg DJF'),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              stat('Meilleur', '$best DJF'),
+              const SizedBox(width: 12),
+              stat(taxi ? 'Courses' : 'Livraisons', taxi ? '128' : '96'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// ───────────────────── DÉTAIL RÉPARTITION ──────────────────────────────────
+class RepartitionDetailScreen extends StatelessWidget {
+  const RepartitionDetailScreen({super.key, required this.role});
+  final String role;
+
+  @override
+  Widget build(BuildContext context) {
+    final vc = context.vc;
+    final taxi = role == 'Taxi';
+    final segs = taxi
+        ? const [
+            DonutSeg('Terminées', 24, Color(0xFF31D63B)),
+            DonutSeg('Annulées', 3, Color(0xFFFF5252)),
+          ]
+        : const [
+            DonutSeg('Livrées', 41, Color(0xFF31D63B)),
+            DonutSeg('Refusées', 6, Color(0xFFFFC107)),
+          ];
+    final tot = segs.fold<double>(0, (s, e) => s + e.value);
+    final rate = ((segs.first.value / tot) * 100).round();
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Répartition')),
+      body: ListView(
+        padding: const EdgeInsets.all(18),
+        children: [
+          Center(
+            child: DonutChart(
+              segments: segs,
+              centerValue: '$rate%',
+              centerLabel: 'réussite',
+            ),
+          ),
+          const SizedBox(height: 24),
+          for (final s in segs)
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: vc.surface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: vc.line),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 14,
+                    height: 14,
+                    decoration:
+                        BoxDecoration(color: s.color, shape: BoxShape.circle),
                   ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(s.label,
+                        style: TextStyle(
+                            color: vc.onSurface,
+                            fontWeight: FontWeight.w700)),
+                  ),
+                  Text(
+                      '${s.value.toInt()} · ${((s.value / tot) * 100).round()}%',
+                      style: TextStyle(
+                          color: vc.primary, fontWeight: FontWeight.w800)),
+                ],
+              ),
+            ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: vc.primary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.emoji_events, color: vc.primary),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    taxi
+                        ? 'Excellent taux de réussite ! Continuez ainsi.'
+                        : 'Bon taux de livraison. Acceptez plus pour gagner plus.',
+                    style: TextStyle(color: vc.onSurface, height: 1.4),
+                  ),
+                ),
               ],
             ),
           ),
