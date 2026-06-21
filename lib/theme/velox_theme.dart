@@ -26,8 +26,8 @@ class VeloxColors extends ThemeExtension<VeloxColors> {
     bg: Color(0xFF0E0E0E),
     surface: Color(0xFF161616),
     line: Color(0xFF2A2A2A),
-    primary: Color(0xFF9FFF88),
-    onPrimary: Color(0xFF063D00),
+    primary: Color(0xFF31D63B),
+    onPrimary: Color(0xFF062B0A),
     onSurface: Color(0xFFFFFFFF),
     dim: Color(0xFFADAAAB),
   );

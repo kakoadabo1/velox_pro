@@ -115,6 +115,21 @@ class _AuthScreenState extends State<AuthScreen>
                   ),
                 ),
 
+                if (firebaseInitError != null)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.red),
+                    ),
+                    child: Text(
+                      'Firebase non initialisé :\n$firebaseInitError',
+                      style: const TextStyle(color: Colors.red, fontSize: 12),
+                    ),
+                  ),
+
                 // ── Logo animé ──
                 _Appear(
                   controller: _intro,
@@ -189,11 +204,25 @@ class _AuthScreenState extends State<AuthScreen>
                   controller: _intro,
                   start: 0.16,
                   child: Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(
-                      'Connexion · espace pro',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: vc.dim, fontSize: 14),
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Column(
+                      children: [
+                        Text(
+                          'Bienvenue 👋',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: vc.onSurface,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Votre espace pro Livreur & Taxi',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: vc.dim, fontSize: 14),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -205,6 +234,7 @@ class _AuthScreenState extends State<AuthScreen>
                   child: _GlowField(
                     controller: _email,
                     hint: 'Adresse email',
+                    prefixIcon: Icons.mail_outline,
                     keyboardType: TextInputType.emailAddress,
                     validator: (v) => (v == null || !v.contains('@'))
                         ? 'Email invalide'
@@ -219,6 +249,7 @@ class _AuthScreenState extends State<AuthScreen>
                   child: _GlowField(
                     controller: _password,
                     hint: 'Mot de passe',
+                    prefixIcon: Icons.lock_outline,
                     obscure: _obscure,
                     validator: (v) => (v == null || v.length < 4)
                         ? '4 caractères minimum'
@@ -407,6 +438,7 @@ class _GlowField extends StatefulWidget {
     this.validator,
     this.obscure = false,
     this.suffix,
+    this.prefixIcon,
     this.keyboardType,
     this.enabled = true,
   });
@@ -416,6 +448,7 @@ class _GlowField extends StatefulWidget {
   final String? Function(String?)? validator;
   final bool obscure;
   final Widget? suffix;
+  final IconData? prefixIcon;
   final TextInputType? keyboardType;
   final bool enabled;
 
@@ -483,6 +516,9 @@ class _GlowFieldState extends State<_GlowField>
         decoration: InputDecoration(
           hintText: widget.hint,
           hintStyle: TextStyle(color: vc.dim),
+          prefixIcon: widget.prefixIcon == null
+              ? null
+              : Icon(widget.prefixIcon, color: vc.dim),
           suffixIcon: widget.suffix,
           border: InputBorder.none,
           enabledBorder: InputBorder.none,
