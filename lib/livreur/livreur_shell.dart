@@ -1,7 +1,7 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../theme/velox_theme.dart';
+import '../common/pro_common.dart';
 
 class LivreurShell extends StatefulWidget {
   const LivreurShell({super.key});
@@ -12,14 +12,19 @@ class LivreurShell extends StatefulWidget {
 
 class _LivreurShellState extends State<LivreurShell> {
   int _tab = 0;
+  bool _online = false; // statut conservé entre les onglets
+
+  void _setOnline(bool v) => setState(() => _online = v);
 
   @override
   Widget build(BuildContext context) {
     final vc = context.vc;
     final pages = [
-      const _LivreurHome(),
-      const _LivreurOrders(),
+      _LivreurHome(online: _online, onToggle: () => _setOnline(!_online)),
+      _LivreurOrders(online: _online),
       const _LivreurActive(),
+      ParametresScreen(
+          role: 'Livreur', online: _online, onToggleOnline: _setOnline),
     ];
 
     return Scaffold(
@@ -35,29 +40,31 @@ class _LivreurShellState extends State<LivreurShell> {
           },
         ),
       ),
-      body: pages[_tab],
+      body: IndexedStack(index: _tab, children: pages),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _tab,
         onDestinationSelected: (i) => setState(() => _tab = i),
         backgroundColor: vc.surface,
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.home_outlined), label: 'Accueil'),
-          NavigationDestination(icon: Icon(Icons.inventory_2_outlined), label: 'Commandes'),
-          NavigationDestination(icon: Icon(Icons.two_wheeler), label: 'En cours'),
+          NavigationDestination(
+              icon: Icon(Icons.home_outlined), label: 'Accueil'),
+          NavigationDestination(
+              icon: Icon(Icons.inventory_2_outlined), label: 'Commandes'),
+          NavigationDestination(
+              icon: Icon(Icons.two_wheeler), label: 'En cours'),
+          NavigationDestination(
+              icon: Icon(Icons.settings_outlined), label: 'Paramètres'),
         ],
       ),
     );
   }
 }
 
-class _LivreurHome extends StatefulWidget {
-  const _LivreurHome();
-  @override
-  State<_LivreurHome> createState() => _LivreurHomeState();
-}
-
-class _LivreurHomeState extends State<_LivreurHome> {
-  bool _online = false;
+/// Dashboard d'accueil.
+class _LivreurHome extends StatelessWidget {
+  const _LivreurHome({required this.online, required this.onToggle});
+  final bool online;
+  final VoidCallback onToggle;
 
   @override
   Widget build(BuildContext context) {
@@ -65,40 +72,33 @@ class _LivreurHomeState extends State<_LivreurHome> {
     return ListView(
       padding: const EdgeInsets.all(18),
       children: [
-        GestureDetector(
-          onTap: () => setState(() => _online = !_online),
-          child: Container(
-            height: 64,
-            decoration: BoxDecoration(
-              color: _online ? vc.primary.withValues(alpha: 0.1) : vc.surface,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: _online ? vc.primary : vc.line, width: 1.5),
-            ),
-            child: Center(
-              child: Text(
-                _online ? 'EN LIGNE — disponible' : 'HORS LIGNE — touchez pour démarrer',
-                style: TextStyle(
-                  color: _online ? vc.primary : vc.dim,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 15,
-                ),
-              ),
-            ),
-          ),
+        const WelcomeHeader(role: 'Livreur'),
+        const SizedBox(height: 18),
+        OnlineToggle(
+          online: online,
+          onTap: onToggle,
+          onlineLabel: 'EN LIGNE — disponible',
+          offlineLabel: 'HORS LIGNE — touchez pour démarrer',
         ),
         const SizedBox(height: 18),
         Row(
-          children: [
-            Expanded(child: _StatCard(label: 'Gains (jour)', value: 4200, unit: 'FDJ')),
-            const SizedBox(width: 12),
-            Expanded(child: _StatCard(label: 'Livraisons', value: 11, unit: '')),
+          children: const [
+            Expanded(child: ProStat(label: 'Gains (jour)', value: 4200, unit: 'FDJ')),
+            SizedBox(width: 12),
+            Expanded(child: ProStat(label: 'Livraisons', value: 11)),
           ],
         ),
+        const SizedBox(height: 12),
+        const NoteCard(role: 'Livreur'),
         const SizedBox(height: 18),
-        Text('Astuce', style: TextStyle(color: vc.onSurface, fontWeight: FontWeight.w700)),
+        Text('Astuce',
+            style:
+                TextStyle(color: vc.onSurface, fontWeight: FontWeight.w700)),
         const SizedBox(height: 6),
         Text(
-          'Passez en ligne pour recevoir des commandes. Elles arrivent dans l\'onglet Commandes.',
+          online
+              ? 'Vous êtes en ligne. Les nouvelles commandes arrivent dans l\'onglet Commandes.'
+              : 'Passez en ligne pour recevoir des commandes.',
           style: TextStyle(color: vc.dim, height: 1.5),
         ),
       ],
@@ -106,49 +106,9 @@ class _LivreurHomeState extends State<_LivreurHome> {
   }
 }
 
-class _StatCard extends StatelessWidget {
-  const _StatCard({required this.label, required this.value, required this.unit});
-  final String label;
-  final int value;
-  final String unit;
-
-  @override
-  Widget build(BuildContext context) {
-    final vc = context.vc;
-    return TweenAnimationBuilder<int>(
-      tween: IntTween(begin: 0, end: value),
-      duration: const Duration(milliseconds: 900),
-      builder: (context, v, _) {
-        return Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: vc.surface,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: vc.line),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label, style: TextStyle(color: vc.dim, fontSize: 12)),
-              const SizedBox(height: 6),
-              Text(
-                unit.isEmpty ? '$v' : '$v $unit',
-                style: TextStyle(
-                  color: vc.primary,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
 class _LivreurOrders extends StatefulWidget {
-  const _LivreurOrders();
+  const _LivreurOrders({required this.online});
+  final bool online;
   @override
   State<_LivreurOrders> createState() => _LivreurOrdersState();
 }
@@ -161,16 +121,24 @@ class _LivreurOrdersState extends State<_LivreurOrders> {
 
   void _remove(int id, String msg) {
     setState(() => _orders.removeWhere((o) => o['id'] == id));
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating));
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating));
   }
 
   @override
   Widget build(BuildContext context) {
     final vc = context.vc;
+    if (!widget.online) {
+      return const EmptyState(
+        title: 'Hors ligne',
+        subtitle: 'Passez en ligne depuis l\'accueil pour recevoir des commandes.',
+        icon: Icons.power_settings_new,
+      );
+    }
     if (_orders.isEmpty) {
-      return Center(
-        child: Text('Aucune commande disponible', style: TextStyle(color: vc.dim)),
+      return const EmptyState(
+        title: 'Tout est clair',
+        subtitle: 'Vous n\'avez pas de commandes pour le moment',
       );
     }
     return ListView.builder(
@@ -193,9 +161,11 @@ class _LivreurOrdersState extends State<_LivreurOrders> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text('Commande #${o['id']}',
-                      style: TextStyle(color: vc.onSurface, fontWeight: FontWeight.w800)),
+                      style: TextStyle(
+                          color: vc.onSurface, fontWeight: FontWeight.w800)),
                   Text('+${o['gain']} FDJ',
-                      style: TextStyle(color: vc.primary, fontWeight: FontWeight.w800)),
+                      style: TextStyle(
+                          color: vc.primary, fontWeight: FontWeight.w800)),
                 ],
               ),
               const SizedBox(height: 8),
@@ -214,8 +184,8 @@ class _LivreurOrdersState extends State<_LivreurOrders> {
                   Expanded(
                     flex: 2,
                     child: FilledButton(
-                      onPressed: () =>
-                          _remove(o['id'] as int, 'Commande acceptée — voir En cours'),
+                      onPressed: () => _remove(
+                          o['id'] as int, 'Commande acceptée — voir En cours'),
                       child: const Text('Accepter'),
                     ),
                   ),
@@ -248,7 +218,10 @@ class _LivreurActiveState extends State<_LivreurActive> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Livraison en cours',
-              style: TextStyle(color: vc.onSurface, fontSize: 20, fontWeight: FontWeight.w900)),
+              style: TextStyle(
+                  color: vc.onSurface,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900)),
           const SizedBox(height: 4),
           Text('Chez Ayan → Inès A. · 2.3 km', style: TextStyle(color: vc.dim)),
           const SizedBox(height: 20),
@@ -260,14 +233,17 @@ class _LivreurActiveState extends State<_LivreurActive> {
                   Icon(
                     i < _step
                         ? Icons.check_circle
-                        : (i == _step ? Icons.radio_button_checked : Icons.circle_outlined),
+                        : (i == _step
+                            ? Icons.radio_button_checked
+                            : Icons.circle_outlined),
                     color: i <= _step ? vc.primary : vc.dim,
                   ),
                   const SizedBox(width: 10),
                   Text(_steps[i],
                       style: TextStyle(
                         color: i <= _step ? vc.onSurface : vc.dim,
-                        fontWeight: i == _step ? FontWeight.w700 : FontWeight.w400,
+                        fontWeight:
+                            i == _step ? FontWeight.w700 : FontWeight.w400,
                       )),
                 ],
               ),

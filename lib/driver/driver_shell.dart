@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../theme/velox_theme.dart';
+import '../common/pro_common.dart';
 
 class DriverShell extends StatefulWidget {
   const DriverShell({super.key});
@@ -11,7 +12,8 @@ class DriverShell extends StatefulWidget {
 }
 
 class _DriverShellState extends State<DriverShell> {
-  bool _online = false;
+  int _tab = 0;
+  bool _online = false; // conservé entre les onglets
   bool _onRide = false;
   Timer? _incoming;
 
@@ -21,8 +23,8 @@ class _DriverShellState extends State<DriverShell> {
     super.dispose();
   }
 
-  void _toggleOnline() {
-    setState(() => _online = !_online);
+  void _setOnline(bool v) {
+    setState(() => _online = v);
     _incoming?.cancel();
     if (_online && !_onRide) {
       _incoming = Timer(const Duration(seconds: 2), _showRideRequest);
@@ -43,7 +45,10 @@ class _DriverShellState extends State<DriverShell> {
       builder: (ctx) => _RideRequestSheet(
         onAccept: () {
           Navigator.pop(ctx);
-          setState(() => _onRide = true);
+          setState(() {
+            _onRide = true;
+            _tab = 2; // bascule sur "En cours"
+          });
         },
         onRefuse: () => Navigator.pop(ctx),
       ),
@@ -53,6 +58,24 @@ class _DriverShellState extends State<DriverShell> {
   @override
   Widget build(BuildContext context) {
     final vc = context.vc;
+    final pages = [
+      _DriverHome(
+        online: _online,
+        onRide: _onRide,
+        onToggle: () => _setOnline(!_online),
+      ),
+      const _DriverCourses(),
+      _onRide
+          ? _ActiveRide(onEnd: () => setState(() => _onRide = false))
+          : const EmptyState(
+              title: 'Aucune course',
+              subtitle: 'Aucune course en cours pour le moment.',
+              icon: Icons.local_taxi_outlined,
+            ),
+      ParametresScreen(
+          role: 'Taxi', online: _online, onToggleOnline: _setOnline),
+    ];
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('VELOX Taxi',
@@ -66,46 +89,121 @@ class _DriverShellState extends State<DriverShell> {
           },
         ),
       ),
-      body: _onRide
-          ? _ActiveRide(onEnd: () => setState(() => _onRide = false))
-          : ListView(
-              padding: const EdgeInsets.all(18),
+      body: IndexedStack(index: _tab, children: pages),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _tab,
+        onDestinationSelected: (i) => setState(() => _tab = i),
+        backgroundColor: vc.surface,
+        destinations: const [
+          NavigationDestination(
+              icon: Icon(Icons.home_outlined), label: 'Accueil'),
+          NavigationDestination(
+              icon: Icon(Icons.receipt_long_outlined), label: 'Courses'),
+          NavigationDestination(
+              icon: Icon(Icons.local_taxi), label: 'En cours'),
+          NavigationDestination(
+              icon: Icon(Icons.settings_outlined), label: 'Paramètres'),
+        ],
+      ),
+    );
+  }
+}
+
+class _DriverHome extends StatelessWidget {
+  const _DriverHome({
+    required this.online,
+    required this.onRide,
+    required this.onToggle,
+  });
+  final bool online;
+  final bool onRide;
+  final VoidCallback onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final vc = context.vc;
+    return ListView(
+      padding: const EdgeInsets.all(18),
+      children: [
+        const WelcomeHeader(role: 'Taxi'),
+        const SizedBox(height: 18),
+        _GainsCard(),
+        const SizedBox(height: 18),
+        OnlineToggle(
+          online: online,
+          onTap: onToggle,
+          onlineLabel: 'EN LIGNE — en attente de course',
+          offlineLabel: 'HORS LIGNE — touchez pour démarrer',
+        ),
+        const SizedBox(height: 12),
+        const NoteCard(role: 'Taxi'),
+        const SizedBox(height: 18),
+        Text(
+          onRide
+              ? 'Course en cours — voir l\'onglet En cours.'
+              : (online
+                  ? 'Une demande de course va arriver…'
+                  : 'Passez en ligne pour recevoir des courses.'),
+          style: TextStyle(color: vc.dim),
+        ),
+      ],
+    );
+  }
+}
+
+class _DriverCourses extends StatelessWidget {
+  const _DriverCourses();
+
+  static const _history = [
+    {'from': 'Héron', 'to': 'Aéroport', 'price': 1800, 'when': "Aujourd'hui 11:20"},
+    {'from': 'Balbala', 'to': 'Centre-ville', 'price': 900, 'when': "Aujourd'hui 09:05"},
+    {'from': 'Gabode', 'to': 'Plateau', 'price': 1200, 'when': 'Hier 18:40'},
+    {'from': 'Aéroport', 'to': 'Héron', 'price': 1800, 'when': 'Hier 16:10'},
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final vc = context.vc;
+    return ListView(
+      padding: const EdgeInsets.all(18),
+      children: [
+        Text('Historique des courses',
+            style: TextStyle(
+                color: vc.onSurface, fontSize: 18, fontWeight: FontWeight.w900)),
+        const SizedBox(height: 14),
+        for (final c in _history)
+          Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: vc.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: vc.line),
+            ),
+            child: Row(
               children: [
-                _GainsCard(),
-                const SizedBox(height: 18),
-                GestureDetector(
-                  onTap: _toggleOnline,
-                  child: Container(
-                    height: 64,
-                    decoration: BoxDecoration(
-                      color: _online ? vc.primary.withValues(alpha: 0.1) : vc.surface,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                          color: _online ? vc.primary : vc.line, width: 1.5),
-                    ),
-                    child: Center(
-                      child: Text(
-                        _online
-                            ? 'EN LIGNE — en attente de course'
-                            : 'HORS LIGNE — touchez pour démarrer',
-                        style: TextStyle(
-                          color: _online ? vc.primary : vc.dim,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 15,
-                        ),
-                      ),
-                    ),
+                Icon(Icons.check_circle, color: vc.primary),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('${c['from']} → ${c['to']}',
+                          style: TextStyle(
+                              color: vc.onSurface,
+                              fontWeight: FontWeight.w700)),
+                      Text('${c['when']}',
+                          style: TextStyle(color: vc.dim, fontSize: 12)),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 18),
-                Text(
-                  _online
-                      ? 'Une demande de course va arriver…'
-                      : 'Passez en ligne pour recevoir des courses.',
-                  style: TextStyle(color: vc.dim),
-                ),
+                Text('${c['price']} DJF',
+                    style: TextStyle(
+                        color: vc.primary, fontWeight: FontWeight.w800)),
               ],
             ),
+          ),
+      ],
     );
   }
 }
@@ -124,7 +222,8 @@ class _GainsCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Gains aujourd\'hui', style: TextStyle(color: vc.dim, fontSize: 13)),
+          Text('Gains aujourd\'hui',
+              style: TextStyle(color: vc.dim, fontSize: 13)),
           const SizedBox(height: 6),
           TweenAnimationBuilder<int>(
             tween: IntTween(begin: 0, end: 8450),
@@ -136,7 +235,8 @@ class _GainsCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 4),
-          Text('6 courses · note 4.9 ★', style: TextStyle(color: vc.dim, fontSize: 12)),
+          Text('6 courses · note 4.9 ★',
+              style: TextStyle(color: vc.dim, fontSize: 12)),
         ],
       ),
     );
@@ -190,7 +290,9 @@ class _RideRequestSheetState extends State<_RideRequestSheet> {
             children: [
               Text('Nouvelle course',
                   style: TextStyle(
-                      color: vc.onSurface, fontSize: 18, fontWeight: FontWeight.w900)),
+                      color: vc.onSurface,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900)),
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
@@ -207,8 +309,7 @@ class _RideRequestSheetState extends State<_RideRequestSheet> {
           Text('Quartier Héron → Aéroport de Djibouti',
               style: TextStyle(color: vc.onSurface)),
           const SizedBox(height: 4),
-          Text('12 min · 5.4 km · 1 800 DJF',
-              style: TextStyle(color: vc.dim)),
+          Text('12 min · 5.4 km · 1 800 DJF', style: TextStyle(color: vc.dim)),
           const SizedBox(height: 18),
           Row(
             children: [
@@ -282,17 +383,23 @@ class _ActiveRideState extends State<_ActiveRide> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('ARRIVÉE DANS', style: TextStyle(color: vc.dim, fontSize: 12)),
+                Text('ARRIVÉE DANS',
+                    style: TextStyle(color: vc.dim, fontSize: 12)),
                 const SizedBox(height: 4),
                 Text('$mm:$ss',
                     style: TextStyle(
-                        color: vc.primary, fontSize: 40, fontWeight: FontWeight.w900)),
+                        color: vc.primary,
+                        fontSize: 40,
+                        fontWeight: FontWeight.w900)),
               ],
             ),
           ),
           const SizedBox(height: 18),
           Text('COURSE EN COURS',
-              style: TextStyle(color: vc.onSurface, fontSize: 18, fontWeight: FontWeight.w900)),
+              style: TextStyle(
+                  color: vc.onSurface,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900)),
           const SizedBox(height: 4),
           Text('Vers Aéroport · 1 800 DJF', style: TextStyle(color: vc.dim)),
           const SizedBox(height: 18),
