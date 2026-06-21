@@ -39,6 +39,49 @@ class FirestoreService {
     }
   }
 
+  /// Document du partenaire (stats : gainsToday, deliveries, rating, ...).
+  static Stream<Map<String, dynamic>> partnerStream() {
+    final uid = _uid;
+    if (uid == null) return const Stream.empty();
+    return _db.collection('partners').doc(uid).snapshots().map(
+          (d) => d.data() ?? <String, dynamic>{},
+        );
+  }
+
+  /// Avis reçus par ce partenaire.
+  static Stream<List<Map<String, dynamic>>> myReviews() {
+    final uid = _uid;
+    if (uid == null) return const Stream.empty();
+    return _db
+        .collection('reviews')
+        .where('targetId', isEqualTo: uid)
+        .snapshots()
+        .map((s) => s.docs.map((d) => {'id': d.id, ...d.data()}).toList());
+  }
+
+  /// Missions terminées (pour l'historique).
+  static Stream<List<Map<String, dynamic>>> completedOrders() {
+    final uid = _uid;
+    if (uid == null) return const Stream.empty();
+    return _db
+        .collection('orders')
+        .where('courierId', isEqualTo: uid)
+        .where('status', isEqualTo: 'livree')
+        .snapshots()
+        .map((s) => s.docs.map((d) => {'id': d.id, ...d.data()}).toList());
+  }
+
+  static Stream<List<Map<String, dynamic>>> completedRides() {
+    final uid = _uid;
+    if (uid == null) return const Stream.empty();
+    return _db
+        .collection('rides')
+        .where('driverId', isEqualTo: uid)
+        .where('status', isEqualTo: 'terminee')
+        .snapshots()
+        .map((s) => s.docs.map((d) => {'id': d.id, ...d.data()}).toList());
+  }
+
   // ─────────────────────────── LIVRAISONS (orders) ───────────────────────────
   /// Commandes prêtes et pas encore prises par un livreur.
   static Stream<List<Map<String, dynamic>>> pendingOrders() {
