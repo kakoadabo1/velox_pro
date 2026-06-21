@@ -5,6 +5,7 @@ import '../theme/velox_theme.dart';
 import '../i18n/app_lang.dart';
 import '../common/pro_common.dart';
 import '../services/firestore_service.dart';
+import '../services/location_service.dart';
 
 class LivreurShell extends StatefulWidget {
   const LivreurShell({super.key});
@@ -16,6 +17,8 @@ class _LivreurShellState extends State<LivreurShell>
     with WidgetsBindingObserver {
   int _tab = 0;
   bool _online = false;
+  double? _lat;
+  double? _lng;
 
   @override
   void initState() {
@@ -32,16 +35,26 @@ class _LivreurShellState extends State<LivreurShell>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (!_online) return;
-    // App en arrière-plan / fermée -> hors ligne ; de retour -> en ligne.
     FirestoreService.setPartnerOnline(
       role: 'livreur',
       online: state == AppLifecycleState.resumed,
     );
   }
 
-  void _setOnline(bool v) {
+  Future<void> _setOnline(bool v) async {
     setState(() => _online = v);
-    FirestoreService.setPartnerOnline(role: 'livreur', online: v);
+    if (v) {
+      final pos = await LocationService.current();
+      if (pos != null) {
+        _lat = pos.latitude;
+        _lng = pos.longitude;
+        if (mounted) setState(() {});
+      }
+      FirestoreService.setPartnerOnline(
+          role: 'livreur', online: true, lat: _lat, lng: _lng);
+    } else {
+      FirestoreService.setPartnerOnline(role: 'livreur', online: false);
+    }
   }
 
   @override
@@ -49,7 +62,7 @@ class _LivreurShellState extends State<LivreurShell>
     final vc = context.vc;
     final pages = [
       _LivreurHome(online: _online, onToggle: () => _setOnline(!_online)),
-      _LivreurOrders(online: _online),
+      _LivreurOrders(online: _online, lat: _lat, lng: _lng),
       const _LivreurActive(),
       const ParametresScreen(role: 'Livreur'),
     ];
@@ -194,8 +207,10 @@ class _LivreurHome extends StatelessWidget {
 }
 
 class _LivreurOrders extends StatelessWidget {
-  const _LivreurOrders({required this.online});
+  const _LivreurOrders({required this.online, this.lat, this.lng});
   final bool online;
+  final double? lat;
+  final double? lng;
 
   @override
   Widget build(BuildContext context) {
@@ -213,18 +228,39 @@ class _LivreurOrders extends StatelessWidget {
         if (snap.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
-        final orders = snap.data ?? const [];
+        final orders = List<Map<String, dynamic>>.from(snap.data ?? const []);
         if (orders.isEmpty) {
           return EmptyState(
             title: tr('all_clear'),
             subtitle: tr('all_clear_sub'),
           );
         }
+        // Distance (km) si on a notre position ET les coordonnées de la commande.
+        double? distOf(Map<String, dynamic> o) {
+          if (lat == null || lng == null) return null;
+          final ol = o['lat'], og = o['lng'];
+          if (ol is num && og is num) {
+            return LocationService.km(
+                lat!, lng!, ol.toDouble(), og.toDouble());
+          }
+          return null;
+        }
+
+        // Tri : la plus proche en premier ; celles sans coordonnées à la fin.
+        orders.sort((a, b) {
+          final da = distOf(a), db = distOf(b);
+          if (da == null && db == null) return 0;
+          if (da == null) return 1;
+          if (db == null) return -1;
+          return da.compareTo(db);
+        });
+
         return ListView.builder(
           padding: const EdgeInsets.all(18),
           itemCount: orders.length,
           itemBuilder: (context, i) {
             final o = orders[i];
+            final d = distOf(o);
             return Container(
               margin: const EdgeInsets.only(bottom: 14),
               padding: const EdgeInsets.all(16),
@@ -254,8 +290,26 @@ class _LivreurOrders extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 6),
-                  Text('${o['address'] ?? ''}',
-                      style: TextStyle(color: vc.dim)),
+                  Row(
+                    children: [
+                      if (d != null) ...[
+                        Icon(Icons.near_me, size: 14, color: vc.primary),
+                        const SizedBox(width: 4),
+                        Text('${d.toStringAsFixed(1)} km',
+                            style: TextStyle(
+                                color: vc.primary,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 12)),
+                        const SizedBox(width: 10),
+                      ],
+                      Expanded(
+                        child: Text('${o['address'] ?? ''}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(color: vc.dim)),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 12),
                   SizedBox(
                     width: double.infinity,

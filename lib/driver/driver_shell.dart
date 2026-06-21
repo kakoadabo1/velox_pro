@@ -5,6 +5,7 @@ import '../theme/velox_theme.dart';
 import '../i18n/app_lang.dart';
 import '../common/pro_common.dart';
 import '../services/firestore_service.dart';
+import '../services/location_service.dart';
 
 class DriverShell extends StatefulWidget {
   const DriverShell({super.key});
@@ -16,6 +17,8 @@ class _DriverShellState extends State<DriverShell>
     with WidgetsBindingObserver {
   int _tab = 0;
   bool _online = false;
+  double? _lat;
+  double? _lng;
 
   @override
   void initState() {
@@ -38,9 +41,20 @@ class _DriverShellState extends State<DriverShell>
     );
   }
 
-  void _setOnline(bool v) {
+  Future<void> _setOnline(bool v) async {
     setState(() => _online = v);
-    FirestoreService.setPartnerOnline(role: 'driver', online: v);
+    if (v) {
+      final pos = await LocationService.current();
+      if (pos != null) {
+        _lat = pos.latitude;
+        _lng = pos.longitude;
+        if (mounted) setState(() {});
+      }
+      FirestoreService.setPartnerOnline(
+          role: 'driver', online: true, lat: _lat, lng: _lng);
+    } else {
+      FirestoreService.setPartnerOnline(role: 'driver', online: false);
+    }
   }
 
   @override
@@ -48,7 +62,7 @@ class _DriverShellState extends State<DriverShell>
     final vc = context.vc;
     final pages = [
       _DriverHome(online: _online, onToggle: () => _setOnline(!_online)),
-      _DriverRequests(online: _online),
+      _DriverRequests(online: _online, lat: _lat, lng: _lng),
       const _DriverActive(),
       const ParametresScreen(role: 'Taxi'),
     ];
@@ -200,8 +214,10 @@ class _DriverHome extends StatelessWidget {
 }
 
 class _DriverRequests extends StatelessWidget {
-  const _DriverRequests({required this.online});
+  const _DriverRequests({required this.online, this.lat, this.lng});
   final bool online;
+  final double? lat;
+  final double? lng;
 
   @override
   Widget build(BuildContext context) {
@@ -219,7 +235,7 @@ class _DriverRequests extends StatelessWidget {
         if (snap.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
-        final rides = snap.data ?? const [];
+        final rides = List<Map<String, dynamic>>.from(snap.data ?? const []);
         if (rides.isEmpty) {
           return EmptyState(
             title: tr('no_request'),
@@ -227,11 +243,31 @@ class _DriverRequests extends StatelessWidget {
             icon: Icons.local_taxi_outlined,
           );
         }
+        // Distance jusqu'au point de départ de la course (fromLat / fromLng).
+        double? distOf(Map<String, dynamic> r) {
+          if (lat == null || lng == null) return null;
+          final rl = r['fromLat'], rg = r['fromLng'];
+          if (rl is num && rg is num) {
+            return LocationService.km(
+                lat!, lng!, rl.toDouble(), rg.toDouble());
+          }
+          return null;
+        }
+
+        rides.sort((a, b) {
+          final da = distOf(a), db = distOf(b);
+          if (da == null && db == null) return 0;
+          if (da == null) return 1;
+          if (db == null) return -1;
+          return da.compareTo(db);
+        });
+
         return ListView.builder(
           padding: const EdgeInsets.all(18),
           itemCount: rides.length,
           itemBuilder: (context, i) {
             final r = rides[i];
+            final d = distOf(r);
             return Container(
               margin: const EdgeInsets.only(bottom: 14),
               padding: const EdgeInsets.all(16),
@@ -260,6 +296,20 @@ class _DriverRequests extends StatelessWidget {
                               fontWeight: FontWeight.w800)),
                     ],
                   ),
+                  if (d != null) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Icon(Icons.near_me, size: 14, color: vc.primary),
+                        const SizedBox(width: 4),
+                        Text('${d.toStringAsFixed(1)} km',
+                            style: TextStyle(
+                                color: vc.primary,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 12)),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   SizedBox(
                     width: double.infinity,

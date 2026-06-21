@@ -24,16 +24,26 @@ class FirestoreService {
   static Future<void> setPartnerOnline({
     required String role, // 'livreur' | 'driver'
     required bool online,
+    double? lat,
+    double? lng,
   }) async {
     final uid = _uid;
     if (uid == null) return;
     try {
-      await _db.collection('partners').doc(uid).set({
+      final data = <String, dynamic>{
         'role': role,
         'online': online,
         'name': FirebaseAuth.instance.currentUser?.email,
         'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      };
+      if (lat != null && lng != null) {
+        data['lat'] = lat;
+        data['lng'] = lng;
+      }
+      await _db.collection('partners').doc(uid).set(
+            data,
+            SetOptions(merge: true),
+          );
     } catch (_) {
       // silencieux : ne jamais bloquer l'UI si le réseau/les règles échouent
     }
