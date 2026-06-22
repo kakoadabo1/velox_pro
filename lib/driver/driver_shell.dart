@@ -136,8 +136,6 @@ class _DriverHome extends StatelessWidget {
         final p = snap.data ?? const {};
         final gains = ((p['gainsToday'] ?? 0) as num).toInt();
         final courses = ((p['rides'] ?? 0) as num).toInt();
-        final rating = (p['rating'] as num?)?.toDouble();
-        final count = (p['ratingCount'] as num?)?.toInt();
         final weekly =
             (p['weekly'] as List?)?.map((e) => (e as num).toInt()).toList();
         List<DonutSeg>? segs;
@@ -190,7 +188,7 @@ class _DriverHome extends StatelessWidget {
             const SizedBox(height: 14),
             RepartitionCard(segments: segs),
             const SizedBox(height: 14),
-            NoteCard(role: 'Taxi', rating: rating, count: count),
+            NoteCard(role: 'Taxi'),
             const SizedBox(height: 18),
             Row(
               children: [
@@ -448,8 +446,13 @@ class _DriverActive extends StatelessWidget {
                       final next =
                           status == 'assignee' ? 'en_route' : 'terminee';
                       try {
-                        await FirestoreService.setRideStatus(
-                            r['id'] as String, next);
+                        if (next == 'terminee') {
+                          await FirestoreService.completeRide(
+                              r['id'] as String, (r['price'] ?? 0) as num);
+                        } else {
+                          await FirestoreService.setRideStatus(
+                              r['id'] as String, next);
+                        }
                       } catch (_) {}
                     },
                     child: Text(status == 'assignee'

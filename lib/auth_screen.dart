@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'main.dart';
 import 'theme/velox_theme.dart';
 import 'i18n/app_lang.dart';
+import 'services/firestore_service.dart';
 import 'livreur/livreur_shell.dart';
 import 'driver/driver_shell.dart';
 
@@ -55,6 +56,20 @@ class _AuthScreenState extends State<AuthScreen>
         email: _email.text.trim(),
         password: _password.text,
       );
+      // Vérification SERVEUR du rôle : le compte doit être un partenaire
+      // approuvé pour ce rôle (doc partners/{uid} contrôlé par l'admin).
+      final allowed = await FirestoreService.hasRole(role);
+      if (!allowed) {
+        await FirebaseAuth.instance.signOut();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content: Text(tr('role_denied')),
+                behavior: SnackBarBehavior.floating),
+          );
+        }
+        return;
+      }
       if (!mounted) return;
       final Widget shell =
           role == 'livreur' ? const LivreurShell() : const DriverShell();

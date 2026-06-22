@@ -140,6 +140,7 @@ const Map<String, Map<String, String>> _t = {
   'order_accepted': {'fr': 'Commande acceptée — onglet En cours', 'en': 'Order accepted — In progress tab', 'ar': 'تم قبول الطلب — تبويب جارٍ', 'aa': 'Amris oggolime', 'so': 'Dalab la aqbalay — tabka Socota'},
   'ride_accepted': {'fr': 'Course acceptée — onglet En cours', 'en': 'Ride accepted — In progress tab', 'ar': 'تم قبول الرحلة — تبويب جارٍ', 'aa': 'Gexso oggolime', 'so': 'Safar la aqbalay — tabka Socota'},
   'already_taken': {'fr': 'Déjà prise par un autre partenaire', 'en': 'Already taken by another partner', 'ar': 'تم أخذها من قبل شريك آخر', 'aa': 'Kalah kataysih beyte', 'so': 'Mid kale ayaa hore u qaatay'},
+  'role_denied': {'fr': "Ce compte n'est pas autorisé pour ce rôle.", 'en': 'This account is not allowed for this role.', 'ar': 'هذا الحساب غير مصرّح له بهذا الدور.', 'aa': 'A account a doorih maxaqa.', 'so': 'Akoonkan looma oggola doorkan.'},
 
   // Auth
   'login_welcome': {'fr': 'Bienvenue 👋', 'en': 'Welcome 👋', 'ar': '👋 مرحباً', 'aa': 'Nagaay 👋', 'so': 'Soo dhawoow 👋'},

@@ -208,16 +208,12 @@ class ProStat extends StatelessWidget {
 }
 
 class NoteCard extends StatelessWidget {
-  const NoteCard({super.key, required this.role, this.rating, this.count});
+  const NoteCard({super.key, required this.role});
   final String role;
-  final double? rating;
-  final int? count;
 
   @override
   Widget build(BuildContext context) {
     final vc = context.vc;
-    final noteTxt = rating != null ? rating!.toStringAsFixed(1) : '—';
-    final nbTxt = count != null ? '$count ${tr('reviews_n')}' : tr('no_reviews_yet');
     return InkWell(
       borderRadius: BorderRadius.circular(16),
       onTap: () => Navigator.of(context).push(
@@ -235,15 +231,30 @@ class NoteCard extends StatelessWidget {
             Icon(Icons.star, color: vc.primary),
             const SizedBox(width: 10),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(tr('note_avg'),
-                      style: TextStyle(color: vc.dim, fontSize: 12)),
-                  Text('$noteTxt ★ · $nbTxt',
-                      style: TextStyle(
-                          color: vc.onSurface, fontWeight: FontWeight.w800)),
-                ],
+              child: StreamBuilder<List<Map<String, dynamic>>>(
+                stream: FirestoreService.myReviews(),
+                builder: (context, snap) {
+                  final data = snap.data ?? const [];
+                  final noteTxt = data.isEmpty
+                      ? '—'
+                      : (data.fold<num>(0, (s, a) => s + (a['stars'] ?? 0)) /
+                              data.length)
+                          .toStringAsFixed(1);
+                  final nbTxt = data.isEmpty
+                      ? tr('no_reviews_yet')
+                      : '${data.length} ${tr('reviews_n')}';
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(tr('note_avg'),
+                          style: TextStyle(color: vc.dim, fontSize: 12)),
+                      Text('$noteTxt ★ · $nbTxt',
+                          style: TextStyle(
+                              color: vc.onSurface,
+                              fontWeight: FontWeight.w800)),
+                    ],
+                  );
+                },
               ),
             ),
             Icon(Icons.chevron_right, color: vc.dim),

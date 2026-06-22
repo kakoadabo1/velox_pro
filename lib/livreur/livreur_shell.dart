@@ -141,8 +141,6 @@ class _LivreurHome extends StatelessWidget {
         final p = snap.data ?? const {};
         final gains = ((p['gainsToday'] ?? 0) as num).toInt();
         final deliveries = ((p['deliveries'] ?? 0) as num).toInt();
-        final rating = (p['rating'] as num?)?.toDouble();
-        final count = (p['ratingCount'] as num?)?.toInt();
         final weekly = (p['weekly'] as List?)
             ?.map((e) => (e as num).toInt())
             .toList();
@@ -183,7 +181,7 @@ class _LivreurHome extends StatelessWidget {
             const SizedBox(height: 14),
             RepartitionCard(segments: segs),
             const SizedBox(height: 14),
-            NoteCard(role: 'Livreur', rating: rating, count: count),
+            NoteCard(role: 'Livreur'),
             const SizedBox(height: 18),
             Row(
               children: [
@@ -458,8 +456,13 @@ class _LivreurActive extends StatelessWidget {
                           idx < steps.length - 1 ? steps[idx + 1] : null;
                       if (next == null) return;
                       try {
-                        await FirestoreService.setOrderStatus(
-                            o['id'] as String, next);
+                        if (next == 'livree') {
+                          await FirestoreService.completeOrder(
+                              o['id'] as String, (o['total'] ?? 0) as num);
+                        } else {
+                          await FirestoreService.setOrderStatus(
+                              o['id'] as String, next);
+                        }
                       } catch (_) {}
                     },
                     child: Text(
