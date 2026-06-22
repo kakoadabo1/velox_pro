@@ -1,8 +1,8 @@
-name: Build APK
+name: Build Client APK
 
 on:
   push:
-    branches: [main, master]
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -12,97 +12,43 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Java
+      - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: '17'
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          cache: true
 
-      - name: Generate Android shell if missing
-        run: |
-          if [ ! -d "android" ]; then
-            mkdir -p /tmp/keep
-            cp -r lib pubspec.yaml /tmp/keep/
-            [ -d assets ] && cp -r assets /tmp/keep/ || true
-            flutter create --org dj.nomade --project-name velox_pro --platforms=android .
-            rm -rf lib pubspec.yaml
-            cp -r /tmp/keep/lib ./lib
-            cp /tmp/keep/pubspec.yaml ./pubspec.yaml
-            [ -d /tmp/keep/assets ] && cp -r /tmp/keep/assets ./assets || true
-          fi
+      - name: Flutter version
+        run: flutter --version
 
-      - name: Set app name
+      # Flutter (récent) traite le projet en mode AGP 9 : nouveau DSL + Kotlin
+      # intégré. Or ce projet est en AGP 8.11.1 (plugin kotlin-android, ancien
+      # DSL) -> conflit "generateLockFiles". On rétablit l'ancien comportement
+      # via le gradle.properties GLOBAL (~/.gradle), que Flutter ne réécrit PAS
+      # (contrairement à android/gradle.properties qu'il régénère au build).
+      - name: AGP 9 opt-out (global, survit à la réécriture Flutter)
         run: |
-          MAN=android/app/src/main/AndroidManifest.xml
-          if [ -f "$MAN" ]; then
-            sed -i 's/android:label="[^"]*"/android:label="VELOX Partenaire"/' "$MAN"
-          fi
-
-      - name: Add location permissions
-        run: |
-          MAN=android/app/src/main/AndroidManifest.xml
-          if [ -f "$MAN" ] && ! grep -q "ACCESS_FINE_LOCATION" "$MAN"; then
-            sed -i 's#<manifest \(.*\)>#<manifest \1>\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>#' "$MAN"
-            echo "Permissions localisation ajoutées."
-          fi
-
-      - name: Force minSdk 23
-        run: |
-          GRADLE=android/app/build.gradle.kts
-          if [ -f "$GRADLE" ]; then
-            sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 23/' "$GRADLE"
-          fi
-
-      - name: Enable Google Services plugin
-        run: |
-          SETTINGS=android/settings.gradle.kts
-          GRADLE=android/app/build.gradle.kts
-          if ! grep -q "com.google.gms.google-services" "$SETTINGS"; then
-            sed -i 's/plugins {/plugins {\n    id("com.google.gms.google-services") version "4.4.2" apply false/' "$SETTINGS"
-          fi
-          if ! grep -q "com.google.gms.google-services" "$GRADLE"; then
-            sed -i 's/^plugins {/plugins {\n    id("com.google.gms.google-services")/' "$GRADLE"
-          fi
-
-      - name: Write google-services.json
-        env:
-          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
-        run: |
-          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
-            mkdir -p android/app
-            printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
-          fi
+          mkdir -p ~/.gradle
+          {
+            echo "android.newDsl=false"
+            echo "android.builtInKotlin=false"
+          } >> ~/.gradle/gradle.properties
+          echo "----- ~/.gradle/gradle.properties -----"
+          cat ~/.gradle/gradle.properties
 
       - name: Pub get
         run: flutter pub get
 
-      - name: Generate launcher icon and splash
-        run: |
-          if [ -f assets/logo.png ]; then
-            echo "Generation de l'icone..."
-            dart run flutter_launcher_icons
-          else
-            echo "Pas d'assets/logo.png -> icone par defaut conservee."
-          fi
-          if [ -f assets/logo.png ]; then
-            echo "Generation du splash..."
-            dart run flutter_native_splash:create
-          else
-            echo "Pas d'assets/logo.png -> splash par defaut conserve."
-          fi
-
-      - name: Build APK
+      - name: Build APK (release)
         run: flutter build apk --release
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: velox-pro-apk
+          name: velox-client-apk
           path: build/app/outputs/flutter-apk/app-release.apk
-          if-no-files-found: error
