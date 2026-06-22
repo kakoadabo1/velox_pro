@@ -7,6 +7,37 @@ import '../common/pro_common.dart';
 import '../services/firestore_service.dart';
 import '../services/location_service.dart';
 
+// ─── Helpers contrat Client (taxiRides : pickup/destination en maps) ───
+String _rideFrom(Map r) {
+  final p = r['pickup'];
+  return ((p is Map) ? (p['placeName'] ?? p['address']) : null)?.toString() ??
+      '?';
+}
+
+String _rideTo(Map r) {
+  final p = r['destination'];
+  return ((p is Map) ? (p['placeName'] ?? p['address']) : null)?.toString() ??
+      '?';
+}
+
+String _rideDestAddress(Map r) {
+  final p = r['destination'];
+  return ((p is Map) ? (p['address'] ?? p['placeName']) : null)?.toString() ??
+      'Djibouti';
+}
+
+double? _pickLat(Map r) {
+  final p = r['pickup'];
+  final v = (p is Map) ? p['latitude'] : null;
+  return v is num ? v.toDouble() : null;
+}
+
+double? _pickLng(Map r) {
+  final p = r['pickup'];
+  final v = (p is Map) ? p['longitude'] : null;
+  return v is num ? v.toDouble() : null;
+}
+
 class DriverShell extends StatefulWidget {
   const DriverShell({super.key});
   @override
@@ -241,13 +272,12 @@ class _DriverRequests extends StatelessWidget {
             icon: Icons.local_taxi_outlined,
           );
         }
-        // Distance jusqu'au point de départ de la course (fromLat / fromLng).
+        // Distance jusqu'au point de départ (pickup.latitude / longitude).
         double? distOf(Map<String, dynamic> r) {
           if (lat == null || lng == null) return null;
-          final rl = r['fromLat'], rg = r['fromLng'];
-          if (rl is num && rg is num) {
-            return LocationService.km(
-                lat!, lng!, rl.toDouble(), rg.toDouble());
+          final rl = _pickLat(r), rg = _pickLng(r);
+          if (rl != null && rg != null) {
+            return LocationService.km(lat!, lng!, rl, rg);
           }
           return null;
         }
@@ -282,13 +312,13 @@ class _DriverRequests extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          '${r['from'] ?? '?'} → ${r['to'] ?? '?'}',
+                          '${_rideFrom(r)} → ${_rideTo(r)}',
                           style: TextStyle(
                               color: vc.onSurface,
                               fontWeight: FontWeight.w800),
                         ),
                       ),
-                      Text('${r['price'] ?? 0} DJF',
+                      Text('${r['estimatedFare'] ?? 0} DJF',
                           style: TextStyle(
                               color: vc.primary,
                               fontWeight: FontWeight.w800)),
@@ -374,9 +404,9 @@ class _DriverActive extends StatelessWidget {
           );
         }
         final r = list.first;
-        final to = (r['to'] ?? 'Djibouti').toString();
-        final phone = (r['clientPhone'] ?? '').toString();
-        final status = (r['status'] ?? 'assignee') as String;
+        final to = _rideDestAddress(r);
+        final phone = (r['userPhone'] ?? '').toString();
+        final status = (r['status'] ?? 'accepted') as String;
 
         return Padding(
           padding: const EdgeInsets.all(18),
@@ -400,10 +430,10 @@ class _DriverActive extends StatelessWidget {
                             fontSize: 18,
                             fontWeight: FontWeight.w900)),
                     const SizedBox(height: 6),
-                    Text('${r['from'] ?? '?'} → ${r['to'] ?? '?'}',
+                    Text('${_rideFrom(r)} → ${_rideTo(r)}',
                         style: TextStyle(color: vc.onSurface)),
                     const SizedBox(height: 2),
-                    Text('${r['price'] ?? 0} DJF',
+                    Text('${r['estimatedFare'] ?? 0} DJF',
                         style: TextStyle(
                             color: vc.primary, fontWeight: FontWeight.w800)),
                   ],
@@ -443,21 +473,36 @@ class _DriverActive extends StatelessWidget {
                   height: 52,
                   child: FilledButton(
                     onPressed: () async {
-                      final next =
-                          status == 'assignee' ? 'en_route' : 'terminee';
+                      String? next;
+                      if (status == 'accepted') {
+                        next = 'arriving';
+                      } else if (status == 'arriving') {
+                        next = 'arrived';
+                      } else if (status == 'arrived') {
+                        next = 'started';
+                      } else if (status == 'started') {
+                        next = 'completed';
+                      }
+                      if (next == null) return;
                       try {
-                        if (next == 'terminee') {
-                          await FirestoreService.completeRide(
-                              r['id'] as String, (r['price'] ?? 0) as num);
+                        if (next == 'completed') {
+                          await FirestoreService.completeRide(r['id'] as String,
+                              (r['estimatedFare'] ?? 0) as num);
                         } else {
                           await FirestoreService.setRideStatus(
                               r['id'] as String, next);
                         }
                       } catch (_) {}
                     },
-                    child: Text(status == 'assignee'
-                        ? tr('start_ride')
-                        : tr('end_ride')),
+                    child: Text(
+                      status == 'accepted'
+                          ? tr('on_the_way')
+                          : status == 'arriving'
+                              ? tr('i_arrived')
+                              : status == 'arrived'
+                                  ? tr('start_ride')
+                                  : tr('end_ride'),
+                    ),
                   ),
                 ),
               ),

@@ -236,10 +236,11 @@ class _LivreurOrders extends StatelessWidget {
         // Distance (km) si on a notre position ET les coordonnées de la commande.
         double? distOf(Map<String, dynamic> o) {
           if (lat == null || lng == null) return null;
-          final ol = o['lat'], og = o['lng'];
+          final dl = o['deliveryLocation'];
+          final ol = (dl is Map) ? dl['latitude'] : null;
+          final og = (dl is Map) ? dl['longitude'] : null;
           if (ol is num && og is num) {
-            return LocationService.km(
-                lat!, lng!, ol.toDouble(), og.toDouble());
+            return LocationService.km(lat!, lng!, ol.toDouble(), og.toDouble());
           }
           return null;
         }
@@ -275,7 +276,7 @@ class _LivreurOrders extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          '${o['restaurantName'] ?? 'Restaurant'} → ${o['clientName'] ?? 'Client'}',
+                          '${o['restaurantName'] ?? 'Restaurant'} → ${o['customerName'] ?? 'Client'}',
                           style: TextStyle(
                               color: vc.onSurface,
                               fontWeight: FontWeight.w800),
@@ -301,7 +302,7 @@ class _LivreurOrders extends StatelessWidget {
                         const SizedBox(width: 10),
                       ],
                       Expanded(
-                        child: Text('${o['address'] ?? ''}',
+                        child: Text('${o['deliveryAddress'] ?? ''}',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(color: vc.dim)),
@@ -374,12 +375,12 @@ class _LivreurActive extends StatelessWidget {
           );
         }
         final o = list.first;
-        final status = (o['status'] ?? 'assignee') as String;
-        final steps = ['assignee', 'recuperee', 'livree'];
+        final status = (o['status'] ?? 'ready') as String;
+        final steps = ['ready', 'delivering', 'completed'];
         final labels = [tr('step_accepted'), tr('step_picked'), tr('step_delivered')];
         final idx = steps.indexOf(status).clamp(0, steps.length - 1);
-        final address = (o['address'] ?? 'Djibouti').toString();
-        final phone = (o['clientPhone'] ?? '').toString();
+        final address = (o['deliveryAddress'] ?? 'Djibouti').toString();
+        final phone = (o['customerPhone'] ?? '').toString();
 
         return Padding(
           padding: const EdgeInsets.all(18),
@@ -387,7 +388,7 @@ class _LivreurActive extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '${o['restaurantName'] ?? 'Restaurant'} → ${o['clientName'] ?? 'Client'}',
+                '${o['restaurantName'] ?? 'Restaurant'} → ${o['customerName'] ?? 'Client'}',
                 style: TextStyle(
                     color: vc.onSurface,
                     fontSize: 18,
@@ -456,7 +457,7 @@ class _LivreurActive extends StatelessWidget {
                           idx < steps.length - 1 ? steps[idx + 1] : null;
                       if (next == null) return;
                       try {
-                        if (next == 'livree') {
+                        if (next == 'completed') {
                           await FirestoreService.completeOrder(
                               o['id'] as String, (o['total'] ?? 0) as num);
                         } else {
@@ -466,9 +467,9 @@ class _LivreurActive extends StatelessWidget {
                       } catch (_) {}
                     },
                     child: Text(
-                      status == 'assignee'
+                      status == 'ready'
                           ? tr('mark_picked')
-                          : (status == 'recuperee'
+                          : (status == 'delivering'
                               ? tr('mark_delivered')
                               : tr('delivery_done')),
                     ),

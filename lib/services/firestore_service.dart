@@ -1,24 +1,22 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-/// Couche d'accès Firestore partagée par TOUTES les apps VELOX.
+/// Couche d'accès Firestore de l'app PARTENAIRE, alignée sur le CONTRAT de
+/// l'app Client (mêmes collections, mêmes noms de champs, mêmes statuts).
 ///
-/// Modèle (séparation sécurité) :
-///   partners/{uid}        -> ADMIN uniquement : { role, approved, name, phone }
-///   partner_status/{uid}  -> écrit par l'app  : { online, lat, lng, stats... }
-///   orders/{id}           -> commande de livraison (créée par le Client)
-///   rides/{id}            -> course taxi (créée par le Client)
-///   reviews/{id}          -> avis (créé par le Client)
+///   taxiRides/{id}   -> course (créée par le Client, status 'requested')
+///   orders/{id}      -> commande (status 'ready' = prête à enlever)
+///   partners/{uid}   -> ADMIN : { role, approved, name, phone }
+///   partner_status/{uid} -> écrit par l'app : { online, lat, lng, stats... }
+///   reviews/{id}     -> avis
 ///
-/// Le ROLE est dans partners/{uid}, écrit seulement par l'admin (console) :
-/// l'utilisateur ne peut donc PAS se déclarer livreur tout seul.
+/// Courses :  requested -> accepted -> arriving -> arrived -> started -> completed
+/// Commandes: ... -> ready -> delivering -> completed
 class FirestoreService {
   static final FirebaseFirestore _db = FirebaseFirestore.instance;
   static String? get _uid => FirebaseAuth.instance.currentUser?.uid;
 
   // ───────────────────────── VÉRIFICATION DU RÔLE ────────────────────────────
-  /// Vrai si le compte connecté est un partenaire APPROUVÉ pour ce rôle.
-  /// Lit partners/{uid} (doc contrôlé par l'admin).
   static Future<bool> hasRole(String role) async {
     final uid = _uid;
     if (uid == null) return false;
@@ -34,7 +32,7 @@ class FirestoreService {
 
   // ─────────────── Statut du partenaire (en ligne / hors ligne) ───────────────
   static Future<void> setPartnerOnline({
-    required String role, // 'livreur' | 'driver'
+    required String role,
     required bool online,
     double? lat,
     double? lng,
@@ -51,16 +49,13 @@ class FirestoreService {
         data['lat'] = lat;
         data['lng'] = lng;
       }
-      await _db.collection('partner_status').doc(uid).set(
-            data,
-            SetOptions(merge: true),
-          );
-    } catch (_) {
-      // silencieux : ne jamais bloquer l'UI
-    }
+      await _db
+          .collection('partner_status')
+          .doc(uid)
+          .set(data, SetOptions(merge: true));
+    } catch (_) {}
   }
 
-  /// Statut + stats du partenaire (gainsToday, deliveries, weekly, ...).
   static Stream<Map<String, dynamic>> partnerStream() {
     final uid = _uid;
     if (uid == null) return const Stream.empty();
@@ -69,7 +64,6 @@ class FirestoreService {
         );
   }
 
-  /// Avis reçus par ce partenaire.
   static Stream<List<Map<String, dynamic>>> myReviews() {
     final uid = _uid;
     if (uid == null) return const Stream.empty();
@@ -80,51 +74,41 @@ class FirestoreService {
         .map((s) => s.docs.map((d) => {'id': d.id, ...d.data()}).toList());
   }
 
-  static Stream<List<Map<String, dynamic>>> completedOrders() {
-    final uid = _uid;
-    if (uid == null) return const Stream.empty();
-    return _db
-        .collection('orders')
-        .where('courierId', isEqualTo: uid)
-        .where('status', isEqualTo: 'livree')
-        .snapshots()
-        .map((s) => s.docs.map((d) => {'id': d.id, ...d.data()}).toList());
-  }
-
-  static Stream<List<Map<String, dynamic>>> completedRides() {
-    final uid = _uid;
-    if (uid == null) return const Stream.empty();
-    return _db
-        .collection('rides')
-        .where('driverId', isEqualTo: uid)
-        .where('status', isEqualTo: 'terminee')
-        .snapshots()
-        .map((s) => s.docs.map((d) => {'id': d.id, ...d.data()}).toList());
-  }
-
-  // ─────────────────────────── LIVRAISONS (orders) ───────────────────────────
+  // ═══════════════════════════ LIVRAISONS (orders) ═══════════════════════════
+  /// Commandes PRÊTES à enlever et pas encore prises par un livreur.
   static Stream<List<Map<String, dynamic>>> pendingOrders() {
     return _db
         .collection('orders')
-        .where('status', isEqualTo: 'prete')
-        .where('courierId', isNull: true)
+        .where('status', isEqualTo: 'ready')
+        .where('deliveryDriverId', isNull: true)
         .snapshots()
         .map((s) => s.docs.map((d) => {'id': d.id, ...d.data()}).toList());
   }
 
+  /// Ma livraison en cours.
   static Stream<List<Map<String, dynamic>>> myActiveOrders() {
     final uid = _uid;
     if (uid == null) return const Stream.empty();
     return _db
         .collection('orders')
-        .where('courierId', isEqualTo: uid)
-        .where('status', whereIn: ['assignee', 'recuperee'])
+        .where('deliveryDriverId', isEqualTo: uid)
+        .where('status', whereIn: ['ready', 'delivering'])
         .snapshots()
         .map((s) => s.docs.map((d) => {'id': d.id, ...d.data()}).toList());
   }
 
-  /// Accepte une commande SÛREMENT (transaction) ET écrit le téléphone du
-  /// livreur pour que le CLIENT puisse l'appeler.
+  static Stream<List<Map<String, dynamic>>> completedOrders() {
+    final uid = _uid;
+    if (uid == null) return const Stream.empty();
+    return _db
+        .collection('orders')
+        .where('deliveryDriverId', isEqualTo: uid)
+        .where('status', isEqualTo: 'completed')
+        .snapshots()
+        .map((s) => s.docs.map((d) => {'id': d.id, ...d.data()}).toList());
+  }
+
+  /// Le livreur prend la livraison (transaction) + écrit son nom/téléphone.
   static Future<bool> acceptOrder(String orderId) async {
     final uid = _uid;
     if (uid == null) return false;
@@ -135,18 +119,16 @@ class FirestoreService {
         final osnap = await tx.get(oref);
         if (!osnap.exists) return false;
         final od = osnap.data() as Map<String, dynamic>;
-        if (od['courierId'] != null || od['status'] != 'prete') {
-          return false; // déjà prise
+        if (od['deliveryDriverId'] != null || od['status'] != 'ready') {
+          return false;
         }
-        final psnap = await tx.get(pref);
-        final pd = psnap.data() ?? {};
+        final pd = (await tx.get(pref)).data() ?? {};
         tx.update(oref, {
-          'courierId': uid,
-          'status': 'assignee',
-          'assignedAt': FieldValue.serverTimestamp(),
-          'courierName':
+          'deliveryDriverId': uid,
+          'deliveryDriverName':
               pd['name'] ?? FirebaseAuth.instance.currentUser?.email,
-          'courierPhone': pd['phone'] ?? '',
+          'deliveryDriverPhone': pd['phone'] ?? '',
+          'updatedAt': FieldValue.serverTimestamp(),
         });
         return true;
       });
@@ -155,26 +137,34 @@ class FirestoreService {
     }
   }
 
+  /// Change le statut d'une commande (+ horodatage associé).
   static Future<void> setOrderStatus(String orderId, String status) {
-    return _db.collection('orders').doc(orderId).update({'status': status});
+    final data = <String, dynamic>{
+      'status': status,
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+    if (status == 'delivering') data['pickedUpAt'] = FieldValue.serverTimestamp();
+    return _db.collection('orders').doc(orderId).update(data);
   }
 
-  /// Termine une livraison ET met à jour les gains/stats du livreur.
+  /// Termine une livraison (+ stats livreur).
   static Future<void> completeOrder(String orderId, num amount) async {
     await _finish(
       missionRef: _db.collection('orders').doc(orderId),
-      finalStatus: 'livree',
+      finalStatus: 'completed',
+      stampKey: 'deliveredAt',
       amount: amount,
       counterKey: 'deliveries',
       doneKey: 'delivered',
     );
   }
 
-  // ───────────────────────────── COURSES (rides) ─────────────────────────────
+  // ════════════════════════════ COURSES (taxiRides) ══════════════════════════
+  /// Courses DEMANDÉES, pas encore prises.
   static Stream<List<Map<String, dynamic>>> pendingRides() {
     return _db
-        .collection('rides')
-        .where('status', isEqualTo: 'recherche')
+        .collection('taxiRides')
+        .where('status', isEqualTo: 'requested')
         .where('driverId', isNull: true)
         .snapshots()
         .map((s) => s.docs.map((d) => {'id': d.id, ...d.data()}).toList());
@@ -184,37 +174,48 @@ class FirestoreService {
     final uid = _uid;
     if (uid == null) return const Stream.empty();
     return _db
-        .collection('rides')
+        .collection('taxiRides')
         .where('driverId', isEqualTo: uid)
-        .where('status', whereIn: ['assignee', 'en_route'])
+        .where('status',
+            whereIn: ['accepted', 'arriving', 'arrived', 'started'])
         .snapshots()
         .map((s) => s.docs.map((d) => {'id': d.id, ...d.data()}).toList());
   }
 
-  /// Accepte une course SÛREMENT (transaction) ET écrit le téléphone du
-  /// chauffeur pour que le CLIENT puisse l'appeler.
+  static Stream<List<Map<String, dynamic>>> completedRides() {
+    final uid = _uid;
+    if (uid == null) return const Stream.empty();
+    return _db
+        .collection('taxiRides')
+        .where('driverId', isEqualTo: uid)
+        .where('status', isEqualTo: 'completed')
+        .snapshots()
+        .map((s) => s.docs.map((d) => {'id': d.id, ...d.data()}).toList());
+  }
+
+  /// Le chauffeur prend la course (transaction) + écrit son nom/téléphone.
   static Future<bool> acceptRide(String rideId) async {
     final uid = _uid;
     if (uid == null) return false;
-    final rref = _db.collection('rides').doc(rideId);
+    final rref = _db.collection('taxiRides').doc(rideId);
     final pref = _db.collection('partners').doc(uid);
     try {
       return await _db.runTransaction<bool>((tx) async {
         final rsnap = await tx.get(rref);
         if (!rsnap.exists) return false;
         final rd = rsnap.data() as Map<String, dynamic>;
-        if (rd['driverId'] != null || rd['status'] != 'recherche') {
-          return false; // déjà prise
+        if (rd['driverId'] != null || rd['status'] != 'requested') {
+          return false;
         }
-        final psnap = await tx.get(pref);
-        final pd = psnap.data() ?? {};
+        final pd = (await tx.get(pref)).data() ?? {};
         tx.update(rref, {
           'driverId': uid,
-          'status': 'assignee',
-          'assignedAt': FieldValue.serverTimestamp(),
           'driverName':
               pd['name'] ?? FirebaseAuth.instance.currentUser?.email,
           'driverPhone': pd['phone'] ?? '',
+          'status': 'accepted',
+          'acceptedAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
         });
         return true;
       });
@@ -223,30 +224,40 @@ class FirestoreService {
     }
   }
 
+  /// Change le statut d'une course (+ horodatage associé).
   static Future<void> setRideStatus(String rideId, String status) {
-    return _db.collection('rides').doc(rideId).update({'status': status});
+    final data = <String, dynamic>{
+      'status': status,
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+    if (status == 'arrived') data['arrivedAt'] = FieldValue.serverTimestamp();
+    if (status == 'started') data['startedAt'] = FieldValue.serverTimestamp();
+    return _db.collection('taxiRides').doc(rideId).update(data);
   }
 
-  /// Termine une course ET met à jour les gains/stats du chauffeur.
+  /// Termine une course (+ stats chauffeur + finalFare).
   static Future<void> completeRide(String rideId, num amount) async {
+    await _db.collection('taxiRides').doc(rideId).update({
+      'finalFare': amount,
+    }).catchError((_) {});
     await _finish(
-      missionRef: _db.collection('rides').doc(rideId),
-      finalStatus: 'terminee',
+      missionRef: _db.collection('taxiRides').doc(rideId),
+      finalStatus: 'completed',
+      stampKey: 'completedAt',
       amount: amount,
       counterKey: 'rides',
       doneKey: 'done',
     );
   }
 
-  // ───────────────── Cœur : terminer une mission + agréger les stats ──────────
-  /// Met le statut final sur la mission ET incrémente les stats du partenaire
-  /// dans partner_status/{uid} (réinitialisation quotidienne/mensuelle).
+  // ───────────────── Terminer une mission + agréger les stats ─────────────────
   static Future<void> _finish({
     required DocumentReference<Map<String, dynamic>> missionRef,
     required String finalStatus,
+    required String stampKey,
     required num amount,
-    required String counterKey, // 'deliveries' | 'rides'
-    required String doneKey, // 'delivered' | 'done'
+    required String counterKey,
+    required String doneKey,
   }) async {
     final uid = _uid;
     if (uid == null) return;
@@ -254,7 +265,7 @@ class FirestoreService {
     final now = DateTime.now();
     final today = '${now.year}-${now.month}-${now.day}';
     final month = '${now.year}-${now.month}';
-    final wi = now.weekday - 1; // lundi=0 ... dimanche=6
+    final wi = now.weekday - 1;
     try {
       await _db.runTransaction((tx) async {
         final s = await tx.get(sref);
@@ -263,10 +274,8 @@ class FirestoreService {
         final sameMonth = d['statsMonth'] == month;
 
         num gainsToday = sameDay ? (d['gainsToday'] ?? 0) as num : 0;
-        int counter =
-            sameDay ? ((d[counterKey] ?? 0) as num).toInt() : 0;
+        int counter = sameDay ? ((d[counterKey] ?? 0) as num).toInt() : 0;
         num gainsMonth = sameMonth ? (d['gainsMonth'] ?? 0) as num : 0;
-
         List<dynamic> weekly =
             List<dynamic>.from(d['weekly'] ?? List.filled(7, 0));
         if (weekly.length < 7) weekly = List.filled(7, 0);
@@ -280,7 +289,8 @@ class FirestoreService {
 
         tx.update(missionRef, {
           'status': finalStatus,
-          'completedAt': FieldValue.serverTimestamp(),
+          stampKey: FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
         });
         tx.set(
           sref,

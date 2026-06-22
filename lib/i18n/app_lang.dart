@@ -71,6 +71,8 @@ const Map<String, Map<String, String>> _t = {
   'mark_delivered': {'fr': 'Marquer livrée', 'en': 'Mark delivered', 'ar': 'تم التسليم', 'aa': 'Gufte', 'so': 'Calaamadee gaarsiin'},
   'delivery_done': {'fr': 'Livraison terminée ✓', 'en': 'Delivery done ✓', 'ar': 'تم التوصيل ✓', 'aa': 'Gee dammite ✓', 'so': 'Gaarsiin dhammaatay ✓'},
   'start_ride': {'fr': 'Démarrer la course', 'en': 'Start ride', 'ar': 'ابدأ الرحلة', 'aa': 'Gexso qimbis', 'so': 'Bilow safarka'},
+  'on_the_way': {'fr': 'Je suis en route', 'en': "I'm on the way", 'ar': 'أنا في الطريق', 'aa': 'Gexak anu', 'so': 'Waan soo socdaa'},
+  'i_arrived': {'fr': 'Je suis arrivé', 'en': "I've arrived", 'ar': 'لقد وصلت', 'aa': 'Gufte anu', 'so': 'Waan imid'},
   'end_ride': {'fr': 'Terminer la course', 'en': 'End ride', 'ar': 'إنهاء الرحلة', 'aa': 'Gexso dammis', 'so': 'Dhammee safarka'},
   'course_in_progress': {'fr': 'COURSE EN COURS', 'en': 'RIDE IN PROGRESS', 'ar': 'رحلة جارية', 'aa': 'GEXSO TAAMA', 'so': 'SAFAR SOCDA'},
 
